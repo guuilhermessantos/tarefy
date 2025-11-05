@@ -34,7 +34,7 @@ export default function Home() {
           transition={{ delay: 0.2 }}
           className="mt-4 max-w-2xl text-center text-lg text-muted-foreground md:text-xl"
         >
-          Um dashboard estilo Railway para visualizar e gerenciar seu fluxo de trabalho.
+          Um dashboard para visualizar e gerenciar seu fluxo de trabalho.
           Offline-first, visual e simples de usar.
         </motion.p>
         <motion.div
