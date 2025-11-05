@@ -13,6 +13,7 @@ import {
   Database,
   Cloud,
 } from 'lucide-react';
+import { GitHubProfile } from '@/components/GitHubProfile';
 
 export default function Home() {
   return (
@@ -85,6 +86,12 @@ export default function Home() {
           <Feature title="Seguro por padrão" description="Arquitetado para privacidade local e mínima superfície de risco." icon={<Shield className="h-5 w-5" />} />
           <Feature title="Next.js + React" description="Stack moderna, rápida e familiar para contribuir." icon={<Cloud className="h-5 w-5" />} />
         </div>
+      </section>
+
+      {/* GitHub Profile */}
+      <section className="mx-auto max-w-6xl px-6 pb-8 md:px-8">
+        <h2 className="mb-4 text-2xl font-semibold">Desenvolvedor</h2>
+        <GitHubProfile username="guuilhermessantos" />
       </section>
 
       {/* Open Source Callout */}
