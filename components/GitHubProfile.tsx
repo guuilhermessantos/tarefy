@@ -63,11 +63,9 @@ export function GitHubProfile({ username }: { username: string }) {
       transition={{ duration: 0.5 }}
       className="rounded-2xl border border-border bg-card/80 p-6 hover:bg-card transition-colors"
     >
-      <a
-        href={user.html_url}
-        target="_blank"
-        rel="noreferrer"
-        className="flex flex-col md:flex-row items-start md:items-center gap-4 group"
+      <div
+        onClick={() => window.open(user.html_url, '_blank', 'noopener,noreferrer')}
+        className="flex flex-col md:flex-row items-start md:items-center gap-4 group cursor-pointer"
       >
         <img
           src={user.avatar_url}
@@ -114,7 +112,7 @@ export function GitHubProfile({ username }: { username: string }) {
             )}
           </div>
         </div>
-      </a>
+      </div>
     </motion.div>
   );
 }
