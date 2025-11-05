@@ -17,9 +17,9 @@ import { GitHubProfile } from '@/components/GitHubProfile';
 
 export default function Home() {
   return (
-    <div className="railway-gradient min-h-screen w-full">
+    <div className="railway-gradient min-h-screen w-full relative">
       {/* Hero */}
-      <section className="mx-auto flex max-w-6xl flex-col items-center px-6 pb-8 pt-20 md:px-8 md:pt-28">
+      <section className="relative z-10 mx-auto flex max-w-6xl flex-col items-center px-6 pb-8 pt-20 md:px-8 md:pt-28">
         <motion.h1
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -34,7 +34,7 @@ export default function Home() {
           transition={{ delay: 0.2 }}
           className="mt-4 max-w-2xl text-center text-lg text-muted-foreground md:text-xl"
         >
-          Um dashboard estilo Railway para visualizar e gerenciar seu fluxo de trabalho.
+          Um dashboard para visualizar e gerenciar seu fluxo de trabalho.
           Offline-first, visual e simples de usar.
         </motion.p>
         <motion.div
@@ -65,7 +65,7 @@ export default function Home() {
       </section>
 
       {/* Quick Apps */}
-      <section className="mx-auto max-w-6xl px-6 pb-8 md:px-8">
+      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-8 md:px-8">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <CardLink href="/board" title="Flow Board" description="Organize ideias em nós e conexões" icon={<Workflow className="h-5 w-5" />} />
           <CardLink href="/kanban" title="Kanban" description="Planeje com colunas e cartões" icon={<KanbanSquare className="h-5 w-5" />} />
@@ -75,7 +75,7 @@ export default function Home() {
       </section>
 
       {/* Features */}
-      <section className="mx-auto max-w-6xl px-6 pb-12 md:px-8">
+      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-12 md:px-8">
         <h2 className="mb-4 text-2xl font-semibold">Funcionalidades</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Feature title="Offline-first" description="Seus dados funcionam mesmo sem internet, sincronizando depois." icon={<Database className="h-5 w-5" />} />
@@ -89,13 +89,13 @@ export default function Home() {
       </section>
 
       {/* GitHub Profile */}
-      <section className="mx-auto max-w-6xl px-6 pb-8 md:px-8">
+      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-8 md:px-8">
         <h2 className="mb-4 text-2xl font-semibold">Desenvolvedor</h2>
         <GitHubProfile username="guuilhermessantos" />
       </section>
 
       {/* Open Source Callout */}
-      <section className="mx-auto max-w-6xl px-6 pb-20 md:px-8">
+      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-20 md:px-8">
         <div className="rounded-2xl border border-border bg-card/80 p-6 md:p-8">
           <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
             <div>

@@ -1,12 +1,12 @@
 # Tarefy
 
-Gerenciador de tarefas offline-first com canvas visual interativo, inspirado no estilo Railway.
+Gerenciador de tarefas offline-first com canvas visual interativo.
 
 ## 🚀 Características
 
 - **Canvas Visual Interativo**: Crie e conecte tarefas visualmente usando React Flow
 - **Offline-First**: Funciona completamente offline com PouchDB (IndexedDB)
-- **Design Moderno**: Interface dark inspirada no Railway com cores neon sutis
+- **Design Moderno**: Interface dark com cores neon sutis
 - **Persistência Automática**: Salva automaticamente todas as mudanças
 - **Exportação**: Exporte seus fluxos em JSON
 
