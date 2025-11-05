@@ -14,12 +14,15 @@ import {
   Cloud,
 } from 'lucide-react';
 import { GitHubProfile } from '@/components/GitHubProfile';
+import { AnimatedBackground } from '@/components/AnimatedBackground';
 
 export default function Home() {
   return (
-    <div className="railway-gradient min-h-screen w-full">
-      {/* Hero */}
-      <section className="mx-auto flex max-w-6xl flex-col items-center px-6 pb-8 pt-20 md:px-8 md:pt-28">
+    <div className="relative min-h-screen w-full">
+      <AnimatedBackground />
+      <div className="relative z-10">
+        {/* Hero */}
+        <section className="mx-auto flex max-w-6xl flex-col items-center px-6 pb-8 pt-20 md:px-8 md:pt-28">
         <motion.h1
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -116,6 +119,7 @@ export default function Home() {
           </div>
         </div>
       </section>
+      </div>
     </div>
   );
 }
