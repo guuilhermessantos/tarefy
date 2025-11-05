@@ -58,3 +58,36 @@ Acesse [http://localhost:3000](http://localhost:3000)
 - [ ] Drag & drop de arquivos
 - [ ] Notificações
 - [ ] Compartilhamento de quadros
+
+## ☁️ Neon + Prisma + Auth.js (NextAuth) Setup
+
+1. Crie um banco no Neon e copie o `DATABASE_URL` (use sslmode=require).
+2. Configure variáveis de ambiente (Vercel/Local):
+   - `DATABASE_URL`
+   - `AUTH_SECRET` (use uma string aleatória forte)
+   - `NEXTAUTH_URL` (ex.: http://localhost:3000 em dev)
+   - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` (opcional)
+   - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (opcional)
+3. Instale dependências e gere o client Prisma:
+
+```bash
+npm install
+npm run prisma:generate
+```
+
+4. Rode as migrações (em dev):
+
+```bash
+npm run prisma:migrate
+```
+
+5. Inicie a aplicação:
+
+```bash
+npm run dev
+```
+
+### Deploy na Vercel
+- Adicione as mesmas envs no projeto Vercel.
+- O `postinstall` roda `prisma generate` automaticamente.
+- Rotas que tocam o banco rodam com `runtime = 'nodejs'`.
