@@ -86,13 +86,278 @@ export const getAllBoards = async (): Promise<any[]> => {
   }
 };
 
-// Mock sync function for future API integration
-export const syncWithAPI = async (boardId: string, data: any): Promise<void> => {
-  // This is a placeholder for future API sync
-  // When online, this would sync with a remote CouchDB or custom API
-  if (typeof window !== 'undefined' && navigator.onLine) {
-    console.log('Syncing board with API...', { boardId, data });
-    // TODO: Implement actual API sync
+// API Functions
+export interface APIKanbanColumn {
+  id: string;
+  title: string;
+  color?: string;
+  position: number;
+  cards?: APIKanbanCard[];
+}
+
+export interface APIKanbanCard {
+  id: string;
+  title: string;
+  description?: string;
+  columnId: string;
+  tags?: string[];
+  priority?: string;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Load boards from API
+export const loadBoardsFromAPI = async (): Promise<any[]> => {
+  if (typeof window === 'undefined' || !navigator.onLine) {
+    return [];
+  }
+
+  try {
+    const response = await fetch('/api/boards', {
+      method: 'GET',
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        console.log('Unauthorized - user not logged in');
+        return [];
+      }
+      throw new Error(`Failed to load boards: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.boards || [];
+  } catch (error) {
+    console.error('Error loading boards from API:', error);
+    return [];
+  }
+};
+
+// Load kanban data from API
+export const loadKanbanFromAPI = async (boardId: string): Promise<{ columns: APIKanbanColumn[]; cards: APIKanbanCard[] } | null> => {
+  if (typeof window === 'undefined' || !navigator.onLine) {
+    console.log('[loadKanbanFromAPI] Offline or server-side, skipping');
+    return null;
+  }
+
+  if (!boardId || boardId.startsWith('kanban-') || boardId === 'default') {
+    console.log('[loadKanbanFromAPI] Invalid boardId:', boardId);
+    return null;
+  }
+
+  try {
+    console.log('[loadKanbanFromAPI] Attempting to load board:', boardId);
+    const response = await fetch(`/api/kanban/${boardId}/columns`, {
+      method: 'GET',
+      credentials: 'include',
+    });
+
+    console.log('[loadKanbanFromAPI] Response status:', response.status);
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 404) {
+        console.log('[loadKanbanFromAPI] Board not found or unauthorized');
+        return null;
+      }
+      throw new Error(`Failed to load: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const columns = data.columns || [];
+    
+    console.log('[loadKanbanFromAPI] Loaded:', { columnsCount: columns.length, cardsCount: columns.reduce((acc: number, col: any) => acc + (col.cards?.length || 0), 0) });
+
+    // Extract all cards from columns
+    const cards: APIKanbanCard[] = [];
+    columns.forEach((column: APIKanbanColumn) => {
+      if (column.cards) {
+        cards.push(...column.cards);
+      }
+    });
+
+    return {
+      columns: columns.map((col: any) => ({
+        id: col.id,
+        title: col.title,
+        color: col.color,
+        position: col.position,
+      })),
+      cards: cards.map((card: any) => ({
+        id: card.id,
+        title: card.title,
+        description: card.description,
+        columnId: card.columnId,
+        tags: card.tags || [],
+        priority: card.priority,
+        position: card.position,
+        createdAt: card.createdAt,
+        updatedAt: card.updatedAt,
+      })),
+    };
+  } catch (error) {
+    console.error('Error loading from API:', error);
+    return null;
+  }
+};
+
+// Sync individual card to API
+export const syncCardToAPI = async (boardId: string, card: any, isNew: boolean = false): Promise<APIKanbanCard | null> => {
+  if (typeof window === 'undefined' || !navigator.onLine) {
+    return null;
+  }
+
+  try {
+    if (isNew) {
+      // Create new card
+      const response = await fetch(`/api/kanban/${boardId}/cards`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          title: card.title,
+          description: card.description,
+          columnId: card.columnId,
+          tags: card.tags || [],
+          priority: card.priority,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create card: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.card;
+    } else {
+      // Update existing card
+      const response = await fetch(`/api/kanban/${boardId}/cards`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          id: card.id,
+          title: card.title,
+          description: card.description,
+          tags: card.tags || [],
+          priority: card.priority,
+          newColumnId: card.columnId, // For moving between columns
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update card: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.card;
+    }
+  } catch (error) {
+    console.error('Error syncing card to API:', error);
+    return null;
+  }
+};
+
+// Delete card from API
+export const deleteCardFromAPI = async (boardId: string, cardId: string): Promise<boolean> => {
+  if (typeof window === 'undefined' || !navigator.onLine) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(`/api/kanban/${boardId}/cards?id=${cardId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to delete card: ${response.status}`);
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error deleting card from API:', error);
+    return false;
+  }
+};
+
+// Sync column to API
+export const syncColumnToAPI = async (boardId: string, column: any, isNew: boolean = false): Promise<APIKanbanColumn | null> => {
+  if (typeof window === 'undefined' || !navigator.onLine) {
+    return null;
+  }
+
+  try {
+    if (isNew) {
+      const response = await fetch(`/api/kanban/${boardId}/columns`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          title: column.title,
+          color: column.color,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create column: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.column;
+    } else {
+      // Note: API doesn't have PATCH for columns yet, but we can add it if needed
+      console.log('Column update not implemented in API yet');
+      return null;
+    }
+  } catch (error) {
+    console.error('Error syncing column to API:', error);
+    return null;
+  }
+};
+
+// Full sync function - syncs all cards and columns to API
+export const syncWithAPI = async (boardId: string, data: { columns?: any[]; cards?: any[] }): Promise<void> => {
+  if (typeof window === 'undefined' || !navigator.onLine) {
+    return;
+  }
+
+  try {
+    const { columns, cards } = data;
+
+    // Sync columns first (they need to exist for cards)
+    if (columns && columns.length > 0) {
+      for (const column of columns) {
+        // Check if column exists in API by trying to load
+        const apiData = await loadKanbanFromAPI(boardId);
+        const columnExists = apiData?.columns.some((c) => c.id === column.id);
+
+        if (!columnExists && !column.id.startsWith('col-')) {
+          // New column - create it
+          await syncColumnToAPI(boardId, column, true);
+        }
+      }
+    }
+
+    // Sync cards
+    if (cards && cards.length > 0) {
+      for (const card of cards) {
+        // Check if card exists in API
+        const apiData = await loadKanbanFromAPI(boardId);
+        const cardExists = apiData?.cards.some((c) => c.id === card.id);
+
+        if (!cardExists && !card.id.startsWith('card-')) {
+          // New card - create it
+          await syncCardToAPI(boardId, card, true);
+        } else if (cardExists) {
+          // Existing card - update it
+          await syncCardToAPI(boardId, card, false);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error syncing with API:', error);
   }
 };
 
