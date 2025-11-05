@@ -45,6 +45,7 @@
 
 :root {
   --radius: 1rem;
+  /* Railway-inspired colors */
   --railway-bg: #0F0F10;
   --railway-green: #00E091;
   --railway-purple: #7B61FF;
@@ -127,6 +128,7 @@
     font-weight: 500;
   }
   
+  /* Railway-inspired gradient backgrounds */
   .railway-gradient {
     background: linear-gradient(135deg, #0F0F10 0%, #1A1A1B 100%);
     position: relative;
@@ -148,6 +150,7 @@
     );
     animation: purple-glow 20s ease-in-out infinite alternate;
     pointer-events: none;
+    z-index: 0;
   }
   
   .railway-gradient::after {
@@ -165,6 +168,7 @@
     );
     animation: purple-glow 25s ease-in-out infinite alternate-reverse;
     pointer-events: none;
+    z-index: 0;
   }
   
   @keyframes purple-glow {
@@ -180,6 +184,11 @@
       transform: translate(-10%, -10%) scale(0.9);
       opacity: 0.5;
     }
+  }
+  
+  .railway-gradient > * {
+    position: relative;
+    z-index: 1;
   }
   
   /* Floating card effect */
