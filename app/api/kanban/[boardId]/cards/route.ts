@@ -7,16 +7,17 @@ export const runtime = 'nodejs';
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { boardId: string } }
+  { params }: { params: Promise<{ boardId: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const { boardId } = await params;
   const { title, description, columnId, tags, priority } = await req.json();
   if (!title || !columnId) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
 
   const column = await prisma.kanbanColumn.findFirst({
-    where: { id: String(columnId), board: { id: params.boardId, userId: session.user.id } },
+    where: { id: String(columnId), board: { id: boardId, userId: session.user.id } },
   });
   if (!column) return NextResponse.json({ error: 'Column not found' }, { status: 404 });
 
@@ -39,10 +40,11 @@ export async function POST(
   return NextResponse.json({ card }, { status: 201 });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { boardId: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ boardId: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const { boardId } = await params;
   const body = await req.json();
   const id = String(body?.id || '');
   if (!id) return NextResponse.json({ error: 'Card id required' }, { status: 400 });
@@ -51,7 +53,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { boardId: s
   if (!card) return NextResponse.json({ error: 'Card not found' }, { status: 404 });
 
   const column = await prisma.kanbanColumn.findFirst({
-    where: { id: card.columnId, board: { id: params.boardId, userId: session.user.id } },
+    where: { id: card.columnId, board: { id: boardId, userId: session.user.id } },
   });
   if (!column) return NextResponse.json({ error: 'Unauthorized for this board' }, { status: 403 });
 
@@ -63,7 +65,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { boardId: s
 
   if (body.newColumnId) {
     const newColumn = await prisma.kanbanColumn.findFirst({
-      where: { id: String(body.newColumnId), boardId: params.boardId },
+      where: { id: String(body.newColumnId), boardId: boardId },
     });
     if (!newColumn) return NextResponse.json({ error: 'New column not found' }, { status: 404 });
 
@@ -76,16 +78,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { boardId: s
   return NextResponse.json({ card: updated });
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { boardId: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ boardId: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const { boardId } = await params;
   const { searchParams } = new URL(req.url);
   const id = String(searchParams.get('id') || '');
   if (!id) return NextResponse.json({ error: 'Card id required' }, { status: 400 });
 
   const card = await prisma.kanbanCard.findUnique({ where: { id }, include: { column: { include: { board: true } } } });
-  if (!card || card.column.board.id !== params.boardId || card.column.board.userId !== session.user.id) {
+  if (!card || card.column.board.id !== boardId || card.column.board.userId !== session.user.id) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 

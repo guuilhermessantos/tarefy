@@ -7,12 +7,13 @@ export const runtime = 'nodejs';
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { boardId: string } }
+  { params }: { params: Promise<{ boardId: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const board = await prisma.board.findFirst({ where: { id: params.boardId, userId: session.user.id } });
+  const { boardId } = await params;
+  const board = await prisma.board.findFirst({ where: { id: boardId, userId: session.user.id } });
   if (!board) return NextResponse.json({ error: 'Board not found' }, { status: 404 });
 
   const columns = await prisma.kanbanColumn.findMany({
@@ -26,12 +27,13 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { boardId: string } }
+  { params }: { params: Promise<{ boardId: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const board = await prisma.board.findFirst({ where: { id: params.boardId, userId: session.user.id } });
+  const { boardId } = await params;
+  const board = await prisma.board.findFirst({ where: { id: boardId, userId: session.user.id } });
   if (!board) return NextResponse.json({ error: 'Board not found' }, { status: 404 });
 
   const body = await req.json();

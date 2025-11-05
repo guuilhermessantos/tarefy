@@ -7,7 +7,6 @@ import { prisma } from '@/lib/db';
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
-  trustHost: true,
   providers: [
     CredentialsProvider({
       name: 'Credentials',
@@ -58,10 +57,15 @@ export const authOptions: NextAuthOptions = {
         return `${baseUrl}${path}`;
       }
     },
-    async session({ session, user }) {
-      if (session?.user) {
-        // @ts-expect-error id extension
-        session.user.id = user.id;
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session?.user && token?.id) {
+        (session.user as any).id = token.id;
       }
       return session;
     },
