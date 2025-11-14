@@ -1,12 +1,32 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useKanbanStore, KanbanCard as KanbanCardType } from '@/lib/kanban-store';
 import { KanbanColumn } from './KanbanColumn';
 import { saveBoard, loadBoard, syncWithAPI, loadKanbanFromAPI, syncCardToAPI, deleteCardFromAPI } from '@/lib/pouchdb';
 import { useDebouncedCallback } from 'use-debounce';
 import { useBoardStore } from '@/lib/store';
+import { APIKanbanCard } from '@/lib/pouchdb';
+
+// Convert API card to store card format
+const convertAPICardToCard = (apiCard: APIKanbanCard): KanbanCardType => {
+  const validPriorities: ('low' | 'medium' | 'high')[] = ['low', 'medium', 'high'];
+  const priority = apiCard.priority && validPriorities.includes(apiCard.priority as any)
+    ? (apiCard.priority as 'low' | 'medium' | 'high')
+    : undefined;
+
+  return {
+    id: apiCard.id,
+    title: apiCard.title,
+    description: apiCard.description,
+    columnId: apiCard.columnId,
+    tags: apiCard.tags,
+    priority,
+    createdAt: apiCard.createdAt,
+    updatedAt: apiCard.updatedAt,
+  };
+};
 
 export function KanbanBoard() {
   const {
@@ -25,16 +45,31 @@ export function KanbanBoard() {
 
   const { isOnline } = useBoardStore();
   const [isLoading, setIsLoading] = useState(true);
+  const loadedBoardIdRef = useRef<string | null>(null);
+  const isLoadingRef = useRef(false);
 
-  // Load board on mount - try API first, then local
+  // Load board on mount - try API first, then local (only once per boardId)
   useEffect(() => {
+    // Skip if boardId is invalid
+    if (!boardId || boardId === 'kanban-default' || boardId === 'default' || boardId.startsWith('kanban-')) {
+      setIsLoading(false);
+      loadedBoardIdRef.current = null;
+      return;
+    }
+
+    // Skip if already loading or already loaded this boardId
+    if (isLoadingRef.current || loadedBoardIdRef.current === boardId) {
+      return;
+    }
+
     const loadData = async () => {
+      isLoadingRef.current = true;
       setIsLoading(true);
       console.log('[KanbanBoard] Loading data for boardId:', boardId, 'isOnline:', isOnline);
       
       try {
         // Try to load from API first (only if boardId is valid and online)
-        if (isOnline && boardId && boardId !== 'kanban-default' && boardId !== 'default' && !boardId.startsWith('kanban-')) {
+        if (isOnline) {
           console.log('[KanbanBoard] Attempting to load from API...');
           const apiData = await loadKanbanFromAPI(boardId);
           
@@ -42,16 +77,20 @@ export function KanbanBoard() {
             console.log('[KanbanBoard] API data loaded successfully');
             // Always set data, even if empty (columns or cards might be empty)
             setColumns(apiData.columns || []);
-            setCards(apiData.cards || []);
-            // Save to local storage for offline access
-            await saveBoard(boardId, { columns: apiData.columns || [], cards: apiData.cards || [] });
+            // Convert API cards to store format
+            const convertedCards = (apiData.cards || []).map(convertAPICardToCard);
+            setCards(convertedCards);
+            // Save to local storage for offline access (save converted cards)
+            await saveBoard(boardId, { columns: apiData.columns || [], cards: convertedCards });
+            loadedBoardIdRef.current = boardId;
             setIsLoading(false);
+            isLoadingRef.current = false;
             return;
           } else {
             console.log('[KanbanBoard] API returned no data, trying local...');
           }
         } else {
-          console.log('[KanbanBoard] Skipping API load - boardId:', boardId, 'isOnline:', isOnline);
+          console.log('[KanbanBoard] Skipping API load - offline');
         }
 
         // Fallback to local storage
@@ -64,6 +103,7 @@ export function KanbanBoard() {
         } else {
           console.log('[KanbanBoard] No local data found');
         }
+        loadedBoardIdRef.current = boardId;
       } catch (error) {
         console.error('[KanbanBoard] Error loading board:', error);
         // Final fallback to local
@@ -73,15 +113,25 @@ export function KanbanBoard() {
             if (saved.columns) setColumns(saved.columns);
             if (saved.cards) setCards(saved.cards);
           }
+          loadedBoardIdRef.current = boardId;
         } catch (localError) {
           console.error('[KanbanBoard] Error loading local data:', localError);
         }
       } finally {
         setIsLoading(false);
+        isLoadingRef.current = false;
       }
     };
     loadData();
-  }, [boardId, setColumns, setCards, isOnline]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boardId, isOnline]); // Removed setColumns and setCards from dependencies as they should be stable
+
+  // Reset loaded boardId when boardId changes to invalid
+  useEffect(() => {
+    if (!boardId || boardId === 'kanban-default' || boardId === 'default' || boardId.startsWith('kanban-')) {
+      loadedBoardIdRef.current = null;
+    }
+  }, [boardId]);
 
   // Auto-save with debounce
   const debouncedSave = useDebouncedCallback(async (columns, cards) => {
@@ -106,18 +156,23 @@ export function KanbanBoard() {
 
   // Sync new cards to API (cards with temporary IDs starting with 'card-')
   useEffect(() => {
-    if (!isOnline || !boardId || boardId.startsWith('kanban-')) return;
+    if (!isOnline || !boardId || boardId.startsWith('kanban-') || boardId === 'kanban-default' || boardId === 'default') return;
+
+    // Only sync cards that have temporary IDs (not yet synced)
+    const newCards = cards.filter((c) => c.id.startsWith('card-'));
+    
+    if (newCards.length === 0) return;
 
     const syncNewCards = async () => {
-      // Only sync cards that have temporary IDs (not yet synced)
-      const newCards = cards.filter((c) => c.id.startsWith('card-'));
-      
       for (const card of newCards) {
         try {
           const apiCard = await syncCardToAPI(boardId, card, true);
           if (apiCard) {
-            // Update local card with API response (with real ID from server)
-            updateCard(card.id, { id: apiCard.id, ...apiCard });
+            // Convert API card to store format and update local card
+            const convertedCard = convertAPICardToCard(apiCard);
+            // Update the card with the new ID from server
+            const { id: newId, ...cardData } = convertedCard;
+            updateCard(card.id, { ...cardData, id: newId });
           }
         } catch (error) {
           console.error('Error syncing new card to API:', error);
@@ -127,13 +182,12 @@ export function KanbanBoard() {
 
     // Debounce to avoid multiple syncs
     const timeoutId = setTimeout(() => {
-      if (cards.some((c) => c.id.startsWith('card-'))) {
-        syncNewCards();
-      }
-    }, 500);
+      syncNewCards();
+    }, 1000); // Increased debounce time
 
     return () => clearTimeout(timeoutId);
-  }, [cards, isOnline, boardId, updateCard]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cards.length, isOnline, boardId]); // Only depend on cards.length to avoid re-syncing on every card change
 
   const handleAddCard = (columnId: string, title: string) => {
     // Add to local store immediately (store generates ID)

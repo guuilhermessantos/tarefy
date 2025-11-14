@@ -2,16 +2,21 @@
 
 import { useBoardStore } from '@/lib/store';
 import { Wifi, WifiOff, LogOut, User } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 
 export function Header() {
   const { isOnline, setIsOnline } = useBoardStore();
   const { data: session } = useSession();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
+
+    // Set initial online status
+    setIsOnline(navigator.onLine);
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -34,19 +39,21 @@ export function Header() {
         </div>
         
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 text-sm">
-            {isOnline ? (
-              <>
-                <Wifi className="h-4 w-4 text-primary" />
-                <span className="text-muted-foreground">Online</span>
-              </>
-            ) : (
-              <>
-                <WifiOff className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Offline</span>
-              </>
-            )}
-          </div>
+          {mounted && (
+            <div className="flex items-center gap-2 text-sm">
+              {isOnline ? (
+                <>
+                  <Wifi className="h-4 w-4 text-primary" />
+                  <span className="text-muted-foreground">Online</span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">Offline</span>
+                </>
+              )}
+            </div>
+          )}
 
           {session?.user && (
             <div className="flex items-center gap-3 border-l border-border/50 pl-4">

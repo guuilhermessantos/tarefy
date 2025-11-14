@@ -30,7 +30,7 @@ export const useBoardStore = create<BoardStore>((set, get) => ({
   nodes: defaultNodes,
   edges: defaultEdges,
   boardId: 'default',
-  isOnline: typeof window !== 'undefined' ? navigator.onLine : false,
+  isOnline: false, // Will be set on client mount to avoid hydration mismatch
   isSaving: false,
 
   setNodes: (nodes) => set({ nodes }),

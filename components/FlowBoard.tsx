@@ -17,7 +17,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useBoardStore } from '@/lib/store';
-import { saveBoard, loadBoard, syncWithAPI } from '@/lib/pouchdb';
+import { saveBoard, loadBoard } from '@/lib/pouchdb';
 import TaskNode, { TaskNodeData } from './TaskNode';
 import NoteNode, { NoteNodeData } from './NoteNode';
 import MilestoneNode, { MilestoneNodeData } from './MilestoneNode';
@@ -111,9 +111,7 @@ export function FlowBoard() {
     setIsSaving(true);
     try {
       await saveBoard(boardId, { nodes, edges });
-      if (isOnline) {
-        await syncWithAPI(boardId, { nodes, edges });
-      }
+      // Note: syncWithAPI is only for Kanban (columns/cards), not for FlowBoard (nodes/edges)
     } catch (error) {
       console.error('Error saving board:', error);
     } finally {
@@ -125,7 +123,7 @@ export function FlowBoard() {
     if (nodes.length > 0 || edges.length > 0) {
       debouncedSave(nodes, edges);
     }
-  }, [nodes, edges, debouncedSave, isOnline]);
+  }, [nodes, edges, debouncedSave]);
 
   const onConnect = useCallback(
     (params: Connection) => {

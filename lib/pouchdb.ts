@@ -318,22 +318,38 @@ export const syncColumnToAPI = async (boardId: string, column: any, isNew: boole
 };
 
 // Full sync function - syncs all cards and columns to API
+// Optimized to load API data only once instead of multiple times
 export const syncWithAPI = async (boardId: string, data: { columns?: any[]; cards?: any[] }): Promise<void> => {
   if (typeof window === 'undefined' || !navigator.onLine) {
+    return;
+  }
+
+  if (!boardId || boardId.startsWith('kanban-') || boardId === 'default') {
     return;
   }
 
   try {
     const { columns, cards } = data;
 
+    // Load API data ONCE at the beginning to check what exists
+    let apiData: { columns: APIKanbanColumn[]; cards: APIKanbanCard[] } | null = null;
+    if ((columns && columns.length > 0) || (cards && cards.length > 0)) {
+      apiData = await loadKanbanFromAPI(boardId);
+    }
+
+    const existingColumnIds = new Set(apiData?.columns.map((c) => c.id) || []);
+    const existingCardIds = new Set(apiData?.cards.map((c) => c.id) || []);
+
     // Sync columns first (they need to exist for cards)
     if (columns && columns.length > 0) {
       for (const column of columns) {
-        // Check if column exists in API by trying to load
-        const apiData = await loadKanbanFromAPI(boardId);
-        const columnExists = apiData?.columns.some((c) => c.id === column.id);
+        // Skip temporary IDs (they will be synced individually)
+        if (column.id.startsWith('col-')) {
+          continue;
+        }
 
-        if (!columnExists && !column.id.startsWith('col-')) {
+        const columnExists = existingColumnIds.has(column.id);
+        if (!columnExists) {
           // New column - create it
           await syncColumnToAPI(boardId, column, true);
         }
@@ -343,15 +359,17 @@ export const syncWithAPI = async (boardId: string, data: { columns?: any[]; card
     // Sync cards
     if (cards && cards.length > 0) {
       for (const card of cards) {
-        // Check if card exists in API
-        const apiData = await loadKanbanFromAPI(boardId);
-        const cardExists = apiData?.cards.some((c) => c.id === card.id);
+        // Skip temporary IDs (they will be synced individually via the useEffect)
+        if (card.id.startsWith('card-')) {
+          continue;
+        }
 
-        if (!cardExists && !card.id.startsWith('card-')) {
+        const cardExists = existingCardIds.has(card.id);
+        if (!cardExists) {
           // New card - create it
           await syncCardToAPI(boardId, card, true);
-        } else if (cardExists) {
-          // Existing card - update it
+        } else {
+          // Existing card - update it (only if it changed)
           await syncCardToAPI(boardId, card, false);
         }
       }

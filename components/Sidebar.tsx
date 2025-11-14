@@ -4,6 +4,7 @@ import { Home, LayoutGrid, Settings, Plus, Columns, Timer, FileText } from 'luci
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
 
 const navItems = [
   { icon: Home, label: 'Home', href: '/' },
@@ -16,13 +17,18 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <aside className="fixed left-0 top-16 bottom-0 z-40 w-16 border-r border-border/50 bg-card/80 backdrop-blur-md">
       <div className="flex h-full flex-col items-center gap-2 py-6">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href;
+          const isActive = mounted && pathname === item.href;
 
           return (
             <Link key={item.href} href={item.href}>
@@ -36,15 +42,15 @@ export function Sidebar() {
                 }`}
                 title={item.label}
               >
-                <Icon className="h-5 w-5" />
                 {isActive && (
                   <motion.div
                     layoutId="activeIndicator"
-                    className="absolute inset-0 rounded-xl bg-primary"
+                    className="absolute inset-0 rounded-xl bg-primary z-0"
                     initial={false}
                     transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
                   />
                 )}
+                <Icon className="h-5 w-5 relative z-10" />
               </motion.button>
             </Link>
           );
