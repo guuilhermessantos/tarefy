@@ -108,13 +108,13 @@ export default function Home() {
               </p>
             </div>
             <a
-              href="#"
+              href="https://github.com/guuilhermessantos/tarefy"
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-5 py-3 text-sm font-semibold transition-colors hover:bg-muted/40"
             >
               <Github className="h-4 w-4" />
-              Ver no GitHub (em breve)
+              Ver no GitHub
             </a>
           </div>
         </div>
