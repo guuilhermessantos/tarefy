@@ -2,7 +2,6 @@
 
 import { signIn } from 'next-auth/react';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Github, ArrowLeft, ArrowRight, Chrome } from 'lucide-react';
@@ -12,7 +11,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const router = useRouter();
   const handleSignIn = (provider: 'github' | 'google') => () => {
     const callbackUrl = typeof window !== 'undefined'
       ? normalizeCallback(new URLSearchParams(window.location.search).get('callbackUrl'))
@@ -28,15 +26,12 @@ export default function LoginPage() {
       ? normalizeCallback(new URLSearchParams(window.location.search).get('callbackUrl'))
       : '/board';
     const result = await signIn('credentials', { email, password, callbackUrl, redirect: false });
-    if (result && !result.error) {
-      if (result.url) {
-        window.location.assign(result.url);
-      } else {
-        router.replace(callbackUrl);
-      }
-    } else {
-      setError('Email ou senha inválidos.');
+    if (result?.ok && !result.error) {
+      window.location.assign(result.url ?? callbackUrl);
+      return;
     }
+
+    setError('Email ou senha inválidos.');
     setSubmitting(false);
   };
 

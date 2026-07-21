@@ -81,7 +81,10 @@ Acesse [http://localhost:3000](http://localhost:3000)
 
 ## Deploy (Vercel)
 
-1. Configure as envs (`DATABASE_URL`, `AUTH_SECRET`, `NEXTAUTH_URL`)
-2. Use Neon ou outro PostgreSQL
-3. O `postinstall` roda `prisma generate` automaticamente
-4. Rode `prisma migrate deploy` no banco de produção
+1. Configure as envs no painel da Vercel:
+   - `DATABASE_URL` — connection string do Neon/PostgreSQL
+   - `AUTH_SECRET` e `NEXTAUTH_SECRET` — mesma string aleatória forte
+   - `NEXTAUTH_URL` — URL de produção (ex: `https://tarefy.vercel.app`)
+2. O build roda `prisma migrate deploy` automaticamente
+3. Crie uma conta em `/register` (o seed local não roda em produção)
+4. OAuth GitHub/Google é opcional; email/senha funciona sem isso
