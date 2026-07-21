@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { createBoardInAPI, deleteBoardFromAPI, loadBoardsFromAPI, updateBoardInAPI } from '@/lib/pouchdb';
+import { enqueueSync } from '@/lib/sync-queue';
 
 export interface Board {
   id: string;
@@ -10,46 +12,34 @@ export interface Board {
 interface BoardsStore {
   boards: Board[];
   activeBoardId: string | null;
-  
-  // Actions
+  isLoading: boolean;
   setBoards: (boards: Board[]) => void;
-  addBoard: (name: string) => string; // Returns the new board ID
-  updateBoard: (id: string, name: string) => void;
-  deleteBoard: (id: string) => void;
+  addBoard: (name: string) => Promise<string | null>;
+  updateBoard: (id: string, name: string) => Promise<void>;
+  deleteBoard: (id: string) => Promise<void>;
   setActiveBoard: (id: string | null) => void;
   loadBoards: () => Promise<void>;
 }
 
-const defaultBoards: Board[] = [
-  {
-    id: 'default',
-    name: 'Fluxo Principal',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
+const STORAGE_KEY = 'boards-storage';
 
-// Load from localStorage
 const loadFromStorage = (): { boards: Board[]; activeBoardId: string | null } => {
   if (typeof window === 'undefined') {
-    return { boards: defaultBoards, activeBoardId: 'default' };
+    return { boards: [], activeBoardId: null };
   }
   try {
-    const stored = localStorage.getItem('boards-storage');
-    if (stored) {
-      return JSON.parse(stored);
-    }
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) return JSON.parse(stored);
   } catch (error) {
     console.error('Error loading boards storage:', error);
   }
-  return { boards: defaultBoards, activeBoardId: 'default' };
+  return { boards: [], activeBoardId: null };
 };
 
-// Save to localStorage
 const saveToStorage = (boards: Board[], activeBoardId: string | null) => {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem('boards-storage', JSON.stringify({ boards, activeBoardId }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ boards, activeBoardId }));
   } catch (error) {
     console.error('Error saving boards storage:', error);
   }
@@ -58,56 +48,79 @@ const saveToStorage = (boards: Board[], activeBoardId: string | null) => {
 const stored = loadFromStorage();
 
 export const useBoardsStore = create<BoardsStore>((set, get) => ({
-  boards: stored.boards.length > 0 ? stored.boards : defaultBoards,
-  activeBoardId: stored.activeBoardId || 'default',
+  boards: stored.boards,
+  activeBoardId: stored.activeBoardId,
+  isLoading: false,
 
   setBoards: (boards) => {
-    set({ boards });
     const state = get();
-    saveToStorage(state.boards, state.activeBoardId);
+    set({ boards });
+    saveToStorage(boards, state.activeBoardId);
   },
 
-  addBoard: (name: string) => {
-    const newBoard: Board = {
-      id: `board-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      name,
+  addBoard: async (name: string) => {
+    const apiBoard = await createBoardInAPI(name.trim());
+    if (apiBoard) {
+      const newBoard: Board = {
+        id: apiBoard.id,
+        name: apiBoard.name,
+        createdAt: apiBoard.createdAt,
+        updatedAt: apiBoard.updatedAt,
+      };
+      set((state) => {
+        const boards = [...state.boards, newBoard];
+        saveToStorage(boards, newBoard.id);
+        return { boards, activeBoardId: newBoard.id };
+      });
+      return newBoard.id;
+    }
+
+    enqueueSync('create-board', { name: name.trim() });
+    const localBoard: Board = {
+      id: `board-${Date.now()}`,
+      name: name.trim(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    
     set((state) => {
-      const newBoards = [...state.boards, newBoard];
-      saveToStorage(newBoards, newBoard.id);
-      return { boards: newBoards, activeBoardId: newBoard.id };
+      const boards = [...state.boards, localBoard];
+      saveToStorage(boards, localBoard.id);
+      return { boards, activeBoardId: localBoard.id };
     });
-    
-    return newBoard.id;
+    return localBoard.id;
   },
 
-  updateBoard: (id: string, name: string) => {
+  updateBoard: async (id: string, name: string) => {
+    const trimmed = name.trim();
     set((state) => {
-      const updatedBoards = state.boards.map((board) =>
-        board.id === id
-          ? { ...board, name, updatedAt: new Date().toISOString() }
-          : board
+      const boards = state.boards.map((board) =>
+        board.id === id ? { ...board, name: trimmed, updatedAt: new Date().toISOString() } : board
       );
-      saveToStorage(updatedBoards, state.activeBoardId);
-      return { boards: updatedBoards };
+      saveToStorage(boards, state.activeBoardId);
+      return { boards };
     });
+
+    if (!id.startsWith('board-')) {
+      await updateBoardInAPI(id, { name: trimmed });
+    } else {
+      enqueueSync('update-board', { id, name: trimmed });
+    }
   },
 
-  deleteBoard: (id: string) => {
+  deleteBoard: async (id: string) => {
     set((state) => {
-      const filteredBoards = state.boards.filter((board) => board.id !== id);
-      const newActiveBoardId =
-        state.activeBoardId === id
-          ? filteredBoards.length > 0
-            ? filteredBoards[0].id
-            : null
-          : state.activeBoardId;
-      saveToStorage(filteredBoards, newActiveBoardId);
-      return { boards: filteredBoards, activeBoardId: newActiveBoardId };
+      const boards = state.boards.filter((board) => board.id !== id);
+      const activeBoardId =
+        state.activeBoardId === id ? (boards[0]?.id ?? null) : state.activeBoardId;
+      saveToStorage(boards, activeBoardId);
+      return { boards, activeBoardId };
     });
+
+    if (!id.startsWith('board-')) {
+      await deleteBoardFromAPI(id);
+    } else {
+      enqueueSync('delete-board', { id });
+    }
   },
 
   setActiveBoard: (id: string | null) => {
@@ -117,8 +130,23 @@ export const useBoardsStore = create<BoardsStore>((set, get) => ({
   },
 
   loadBoards: async () => {
-    const stored = loadFromStorage();
-    set({ boards: stored.boards, activeBoardId: stored.activeBoardId });
+    set({ isLoading: true });
+    const apiBoards = await loadBoardsFromAPI();
+    if (apiBoards.length > 0) {
+      const boards: Board[] = apiBoards.map((board: Board) => ({
+        id: board.id,
+        name: board.name,
+        createdAt: board.createdAt,
+        updatedAt: board.updatedAt,
+      }));
+      const currentActive = get().activeBoardId;
+      const activeBoardId = boards.some((b) => b.id === currentActive) ? currentActive : boards[0].id;
+      set({ boards, activeBoardId, isLoading: false });
+      saveToStorage(boards, activeBoardId);
+      return;
+    }
+
+    const local = loadFromStorage();
+    set({ boards: local.boards, activeBoardId: local.activeBoardId, isLoading: false });
   },
 }));
-

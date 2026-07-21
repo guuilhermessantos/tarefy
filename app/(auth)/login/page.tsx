@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
   const router = useRouter();
   const handleSignIn = (provider: 'github' | 'google') => () => {
     const callbackUrl = typeof window !== 'undefined'
@@ -22,17 +23,19 @@ export default function LoginPage() {
   const handleCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    setError('');
     const callbackUrl = typeof window !== 'undefined'
       ? normalizeCallback(new URLSearchParams(window.location.search).get('callbackUrl'))
       : '/board';
     const result = await signIn('credentials', { email, password, callbackUrl, redirect: false });
     if (result && !result.error) {
-      // NextAuth às vezes retorna 200 sem redirecionar; forçamos a navegação
       if (result.url) {
         window.location.assign(result.url);
       } else {
         router.replace(callbackUrl);
       }
+    } else {
+      setError('Email ou senha inválidos.');
     }
     setSubmitting(false);
   };
@@ -100,6 +103,7 @@ export default function LoginPage() {
             >
               {submitting ? 'Entrando…' : 'Entrar com email e senha'}
             </button>
+            {error && <p className="text-sm text-red-400">{error}</p>}
           </form>
 
           <div className="flex flex-col gap-3">

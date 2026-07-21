@@ -26,7 +26,7 @@ interface BoardStore extends BoardState {
 const defaultNodes: Node[] = [];
 const defaultEdges: Edge[] = [];
 
-export const useBoardStore = create<BoardStore>((set, get) => ({
+export const useBoardStore = create<BoardStore>((set) => ({
   nodes: defaultNodes,
   edges: defaultEdges,
   boardId: 'default',

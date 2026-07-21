@@ -1,21 +1,30 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useBoardStore } from '@/lib/store';
-import { Wifi, WifiOff, LogOut, User } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Wifi, WifiOff, LogOut, User, CloudUpload } from 'lucide-react';
+import { useSyncExternalStore } from 'react';
 import { useSession, signOut } from 'next-auth/react';
+import { getPendingSyncCount, subscribePendingSyncCount } from '@/lib/sync-queue';
+
+const subscribe = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 export function Header() {
-  const { isOnline, setIsOnline } = useBoardStore();
+  const { isOnline, setIsOnline, isSaving } = useBoardStore();
   const { data: session } = useSession();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(subscribe, getClientSnapshot, getServerSnapshot);
+  const pendingSync = useSyncExternalStore(
+    subscribePendingSyncCount,
+    getPendingSyncCount,
+    () => 0
+  );
 
   useEffect(() => {
-    setMounted(true);
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 
-    // Set initial online status
     setIsOnline(navigator.onLine);
 
     window.addEventListener('online', handleOnline);
@@ -41,10 +50,17 @@ export function Header() {
         <div className="flex items-center gap-4">
           {mounted && (
             <div className="flex items-center gap-2 text-sm">
-              {isOnline ? (
+              {isSaving ? (
+                <>
+                  <CloudUpload className="h-4 w-4 text-primary animate-pulse" />
+                  <span className="text-muted-foreground">Sincronizando...</span>
+                </>
+              ) : isOnline ? (
                 <>
                   <Wifi className="h-4 w-4 text-primary" />
-                  <span className="text-muted-foreground">Online</span>
+                  <span className="text-muted-foreground">
+                    Online{pendingSync > 0 ? ` (${pendingSync} pendente${pendingSync > 1 ? 's' : ''})` : ''}
+                  </span>
                 </>
               ) : (
                 <>

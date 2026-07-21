@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { hash } from 'bcryptjs';
 
+export const runtime = 'nodejs';
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -22,7 +24,7 @@ export async function POST(req: Request) {
     await prisma.user.create({ data: { email, name, passwordHash } });
 
     return NextResponse.json({ ok: true });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Falha ao registrar usuário.' }, { status: 500 });
   }
 }

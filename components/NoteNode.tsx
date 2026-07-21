@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useState, useCallback, useEffect } from 'react';
+import { memo, useState, useCallback } from 'react';
 import { Handle, Position, NodeProps, useReactFlow } from 'reactflow';
 import { motion } from 'framer-motion';
 import { StickyNote, X } from 'lucide-react';
@@ -13,16 +13,14 @@ export interface NoteNodeData {
 const NoteNode = ({ id, data, selected }: NodeProps<NoteNodeData>) => {
   const { setNodes, setEdges } = useReactFlow();
   const [isEditing, setIsEditing] = useState(false);
-  const [label, setLabel] = useState(data.label || 'Nova Nota');
+  const [draftLabel, setDraftLabel] = useState('');
   const [showDelete, setShowDelete] = useState(false);
-
-  useEffect(() => {
-    setLabel(data.label || 'Nova Nota');
-  }, [data.label]);
+  const displayLabel = data.label || 'Nova Nota';
 
   const handleDoubleClick = useCallback(() => {
+    setDraftLabel(displayLabel);
     setIsEditing(true);
-  }, []);
+  }, [displayLabel]);
 
   const updateNodeLabel = useCallback(
     (newLabel: string) => {
@@ -39,17 +37,17 @@ const NoteNode = ({ id, data, selected }: NodeProps<NoteNodeData>) => {
 
   const handleBlur = useCallback(() => {
     setIsEditing(false);
-    updateNodeLabel(label);
-  }, [label, updateNodeLabel]);
+    updateNodeLabel(draftLabel);
+  }, [draftLabel, updateNodeLabel]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter') {
         setIsEditing(false);
-        updateNodeLabel(label);
+        updateNodeLabel(draftLabel);
       }
     },
-    [label, updateNodeLabel]
+    [draftLabel, updateNodeLabel]
   );
 
   const handleDelete = useCallback(
@@ -118,8 +116,8 @@ const NoteNode = ({ id, data, selected }: NodeProps<NoteNodeData>) => {
           {isEditing ? (
             <input
               type="text"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
+              value={draftLabel}
+              onChange={(e) => setDraftLabel(e.target.value)}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
               className="w-full bg-transparent text-foreground outline-none border-b-2 border-[#3B82F6] focus:border-[#3B82F6]"
@@ -127,7 +125,7 @@ const NoteNode = ({ id, data, selected }: NodeProps<NoteNodeData>) => {
             />
           ) : (
             <p className="text-sm font-medium text-foreground break-words">
-              {label}
+              {displayLabel}
             </p>
           )}
         </div>

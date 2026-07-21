@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { useKanbanStore, KanbanCard as KanbanCardType } from '@/lib/kanban-store';
 import { KanbanColumn } from './KanbanColumn';
 import { saveBoard, loadBoard, syncWithAPI, loadKanbanFromAPI, syncCardToAPI, deleteCardFromAPI } from '@/lib/pouchdb';
+import { isValidBoardId } from '@/lib/api-client';
 import { useDebouncedCallback } from 'use-debounce';
 import { useBoardStore } from '@/lib/store';
 import { APIKanbanCard } from '@/lib/pouchdb';
@@ -12,7 +13,7 @@ import { APIKanbanCard } from '@/lib/pouchdb';
 // Convert API card to store card format
 const convertAPICardToCard = (apiCard: APIKanbanCard): KanbanCardType => {
   const validPriorities: ('low' | 'medium' | 'high')[] = ['low', 'medium', 'high'];
-  const priority = apiCard.priority && validPriorities.includes(apiCard.priority as any)
+  const priority = apiCard.priority && validPriorities.includes(apiCard.priority as 'low' | 'medium' | 'high')
     ? (apiCard.priority as 'low' | 'medium' | 'high')
     : undefined;
 
@@ -51,7 +52,7 @@ export function KanbanBoard() {
   // Load board on mount - try API first, then local (only once per boardId)
   useEffect(() => {
     // Skip if boardId is invalid
-    if (!boardId || boardId === 'kanban-default' || boardId === 'default' || boardId.startsWith('kanban-')) {
+    if (!isValidBoardId(boardId)) {
       setIsLoading(false);
       loadedBoardIdRef.current = null;
       return;
@@ -128,7 +129,7 @@ export function KanbanBoard() {
 
   // Reset loaded boardId when boardId changes to invalid
   useEffect(() => {
-    if (!boardId || boardId === 'kanban-default' || boardId === 'default' || boardId.startsWith('kanban-')) {
+    if (!isValidBoardId(boardId)) {
       loadedBoardIdRef.current = null;
     }
   }, [boardId]);
@@ -156,7 +157,7 @@ export function KanbanBoard() {
 
   // Sync new cards to API (cards with temporary IDs starting with 'card-')
   useEffect(() => {
-    if (!isOnline || !boardId || boardId.startsWith('kanban-') || boardId === 'kanban-default' || boardId === 'default') return;
+    if (!isOnline || !isValidBoardId(boardId)) return;
 
     // Only sync cards that have temporary IDs (not yet synced)
     const newCards = cards.filter((c) => c.id.startsWith('card-'));
@@ -207,9 +208,9 @@ export function KanbanBoard() {
     moveCard(cardId, newColumnId);
     
     // Sync to API if online
-    if (isOnline && boardId && !boardId.startsWith('kanban-')) {
+    if (isOnline && isValidBoardId(boardId)) {
       try {
-        await syncCardToAPI(boardId, { ...card, columnId: newColumnId }, false);
+        await syncCardToAPI(boardId, { ...card, columnId: newColumnId }, false, { move: true });
       } catch (error) {
         console.error('Error syncing card move to API:', error);
       }
@@ -221,7 +222,7 @@ export function KanbanBoard() {
     deleteCard(id);
     
     // Delete from API if online
-    if (isOnline && boardId && !boardId.startsWith('kanban-')) {
+    if (isOnline && isValidBoardId(boardId)) {
       try {
         await deleteCardFromAPI(boardId, id);
       } catch (error) {
@@ -238,7 +239,7 @@ export function KanbanBoard() {
     updateCard(id, data);
     
     // Sync to API if online
-    if (isOnline && boardId && !boardId.startsWith('kanban-')) {
+    if (isOnline && isValidBoardId(boardId)) {
       try {
         await syncCardToAPI(boardId, { ...card, ...data }, false);
       } catch (error) {
@@ -262,7 +263,7 @@ export function KanbanBoard() {
   }
 
   // Show message if no boardId is set or it's invalid
-  if (!boardId || boardId === 'kanban-default' || boardId === 'default' || boardId.startsWith('kanban-')) {
+  if (!isValidBoardId(boardId)) {
     return (
       <div className="flex h-full items-center justify-center">
         <div className="text-center space-y-2">

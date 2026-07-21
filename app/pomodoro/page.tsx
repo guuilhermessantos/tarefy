@@ -10,16 +10,17 @@ import { ParticlesBackground } from '@/components/ParticlesBackground';
 import { usePomodoroStore } from '@/lib/pomodoro-store';
 
 export default function PomodoroPage() {
-  const { loadTodaySessions } = usePomodoroStore();
+  const { loadTodaySessions, loadFromAPI } = usePomodoroStore();
 
   useEffect(() => {
     loadTodaySessions();
+    void loadFromAPI();
     
     // Request notification permission
     if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
-  }, [loadTodaySessions]);
+  }, [loadTodaySessions, loadFromAPI]);
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden">

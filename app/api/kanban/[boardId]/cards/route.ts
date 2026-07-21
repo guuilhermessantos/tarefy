@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
@@ -31,7 +32,7 @@ export async function POST(
       columnId: column.id,
       title: String(title),
       description: description ? String(description) : undefined,
-      tags: Array.isArray(tags) ? tags.map((t: any) => String(t)) : [],
+      tags: Array.isArray(tags) ? tags.map((t: unknown) => String(t)) : [],
       priority: priority ? String(priority) : undefined,
       position: (maxPos._max.position ?? -1) + 1,
     },
@@ -57,10 +58,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ bo
   });
   if (!column) return NextResponse.json({ error: 'Unauthorized for this board' }, { status: 403 });
 
-  const updates: any = {};
+  const updates: Prisma.KanbanCardUpdateInput = {};
   if (body.title !== undefined) updates.title = String(body.title);
   if (body.description !== undefined) updates.description = body.description ? String(body.description) : null;
-  if (body.tags !== undefined) updates.tags = Array.isArray(body.tags) ? body.tags.map((t: any) => String(t)) : [];
+  if (body.tags !== undefined) updates.tags = Array.isArray(body.tags) ? body.tags.map((t: unknown) => String(t)) : [];
   if (body.priority !== undefined) updates.priority = body.priority ? String(body.priority) : null;
 
   if (body.newColumnId) {
@@ -69,7 +70,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ bo
     });
     if (!newColumn) return NextResponse.json({ error: 'New column not found' }, { status: 404 });
 
-    updates.columnId = newColumn.id;
+    updates.column = { connect: { id: newColumn.id } };
     const maxPos = await prisma.kanbanCard.aggregate({ where: { columnId: newColumn.id }, _max: { position: true } });
     updates.position = (maxPos._max.position ?? -1) + 1;
   }

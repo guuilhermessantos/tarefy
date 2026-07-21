@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { api } from '@/lib/api-client';
+import { enqueueSync } from '@/lib/sync-queue';
 
 export type PomodoroMode = 'focus' | 'shortBreak' | 'longBreak';
 
@@ -59,6 +61,7 @@ interface PomodoroStore extends PomodoroState {
   tick: () => void;
   completeSession: () => void;
   loadTodaySessions: () => void;
+  loadFromAPI: () => Promise<void>;
 }
 
 const DEFAULT_FOCUS = 25 * 60; // 25 minutes
@@ -232,6 +235,17 @@ export const usePomodoroStore = create<PomodoroStore>((set, get) => ({
           totalFocusTime: updatedState.totalFocusTime,
         });
         get().loadTodaySessions();
+
+        void api.createPomodoroSession({
+          taskId: session.taskId,
+          taskTitle: session.taskTitle,
+          mode: session.mode,
+          duration: session.duration,
+          completedAt: session.completedAt,
+          completed: session.completed,
+        }).then((result) => {
+          if (!result) enqueueSync('create-pomodoro-session', { ...session });
+        });
         
         // Trigger notification
         if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
@@ -367,6 +381,24 @@ export const usePomodoroStore = create<PomodoroStore>((set, get) => ({
           currentSessionNumber: updatedState.currentSessionNumber,
           totalFocusTime: todayFocusTime,
         });
+      },
+
+      loadFromAPI: async () => {
+        const result = await api.getPomodoroSessions();
+        if (!result?.sessions) return;
+
+        const sessions: PomodoroSession[] = result.sessions.map((s) => ({
+          id: s.id,
+          taskId: s.taskId ?? undefined,
+          taskTitle: s.taskTitle ?? undefined,
+          mode: s.mode as PomodoroMode,
+          duration: s.duration,
+          completedAt: s.completedAt,
+          completed: s.completed,
+        }));
+
+        set({ sessions });
+        get().loadTodaySessions();
       },
     })
 );

@@ -1,34 +1,51 @@
 # Tarefy
 
-Gerenciador de tarefas offline-first com canvas visual interativo.
+Gerenciador de tarefas offline-first com canvas visual interativo, Kanban, Pomodoro e Prompts — com sincronização via PostgreSQL + NextAuth.
 
-## 🚀 Características
+## Características
 
-- **Canvas Visual Interativo**: Crie e conecte tarefas visualmente usando React Flow
-- **Offline-First**: Funciona completamente offline com PouchDB (IndexedDB)
-- **Design Moderno**: Interface dark com cores neon sutis
-- **Persistência Automática**: Salva automaticamente todas as mudanças
-- **Exportação**: Exporte seus fluxos em JSON
+- **Flow Board**: canvas React Flow com nós, conexões e export JSON
+- **Kanban**: colunas, cards, drag-and-drop e sync com API
+- **Pomodoro**: timer, stats e integração com tarefas do Kanban
+- **Prompts**: biblioteca de prompts com tags e busca
+- **Offline-first**: PouchDB/localStorage com fila de sync ao reconectar
+- **Auth**: login por email/senha + OAuth (GitHub/Google)
 
-## 🛠️ Tecnologias
+## Stack
 
-- **Next.js 14** (App Router)
-- **TypeScript**
-- **React Flow** - Canvas visual
-- **PouchDB** - Armazenamento offline
-- **Zustand** - Gerenciamento de estado
-- **Framer Motion** - Animações
-- **TailwindCSS** - Estilização
-- **shadcn/ui** - Componentes UI
-- **Lucide Icons** - Ícones
+- Next.js 16 (App Router) + TypeScript
+- Prisma + PostgreSQL
+- NextAuth.js
+- Zustand + PouchDB
+- React Flow + TailwindCSS 4
 
-## 📦 Instalação
+## Setup local
+
+### 1. Variáveis de ambiente
+
+Copie `.env.example` para `.env`:
+
+```env
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres?schema=public_tarefy"
+AUTH_SECRET="sua-string-secreta"
+NEXTAUTH_URL="http://localhost:3000"
+```
+
+### 2. Node.js 20+
+
+```bash
+nvm use 20
+```
+
+### 3. Instalar e migrar
 
 ```bash
 npm install
+npm run prisma:migrate
+npm run seed
 ```
 
-## 🏃 Executar
+### 4. Rodar
 
 ```bash
 npm run dev
@@ -36,58 +53,35 @@ npm run dev
 
 Acesse [http://localhost:3000](http://localhost:3000)
 
-## 🎨 Design
+### Login de teste (após seed)
 
-- **Fundo**: `#0F0F10` (cinza escuro)
-- **Primário**: `#00E091` (verde neon)
-- **Secundário**: `#7B61FF` (roxo elegante)
-- **Tipografia**: Geist Sans (peso médio)
+- Email: `teste@tarefy.local`
+- Senha: `senha123`
 
-## 📝 Funcionalidades
+## Rotas
 
-1. **Dashboard**: Página inicial minimalista
-2. **Canvas Board**: Crie, edite e conecte tarefas
-3. **Persistência Local**: Tudo salvo automaticamente no IndexedDB
-4. **Status Online/Offline**: Indicador de conexão
-5. **Exportação**: Baixe seus fluxos em JSON
+| Rota | Descrição |
+|------|-----------|
+| `/` | Landing |
+| `/board` | Flow Board (canvas) |
+| `/kanban` | Kanban |
+| `/pomodoro` | Timer Pomodoro |
+| `/prompts` | Biblioteca de prompts |
+| `/settings` | Configurações do Pomodoro |
+| `/login`, `/register` | Autenticação |
 
-## 🔮 Próximos Passos
+## APIs
 
-- [ ] Sincronização com API/Backend
-- [ ] Múltiplos quadros
-- [ ] Drag & drop de arquivos
-- [ ] Notificações
-- [ ] Compartilhamento de quadros
+- `/api/boards` — CRUD de boards (+ flowData JSON)
+- `/api/kanban/[boardId]/columns` — colunas Kanban
+- `/api/kanban/[boardId]/cards` — cards Kanban
+- `/api/kanban/tasks` — tarefas para o Pomodoro
+- `/api/prompts` — CRUD de prompts
+- `/api/pomodoro/sessions` — histórico Pomodoro
 
-## ☁️ Neon + Prisma + Auth.js (NextAuth) Setup
+## Deploy (Vercel)
 
-1. Crie um banco no Neon e copie o `DATABASE_URL` (use sslmode=require).
-2. Configure variáveis de ambiente (Vercel/Local):
-   - `DATABASE_URL`
-   - `AUTH_SECRET` (use uma string aleatória forte)
-   - `NEXTAUTH_URL` (ex.: http://localhost:3000 em dev)
-   - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` (opcional)
-   - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (opcional)
-3. Instale dependências e gere o client Prisma:
-
-```bash
-npm install
-npm run prisma:generate
-```
-
-4. Rode as migrações (em dev):
-
-```bash
-npm run prisma:migrate
-```
-
-5. Inicie a aplicação:
-
-```bash
-npm run dev
-```
-
-### Deploy na Vercel
-- Adicione as mesmas envs no projeto Vercel.
-- O `postinstall` roda `prisma generate` automaticamente.
-- Rotas que tocam o banco rodam com `runtime = 'nodejs'`.
+1. Configure as envs (`DATABASE_URL`, `AUTH_SECRET`, `NEXTAUTH_URL`)
+2. Use Neon ou outro PostgreSQL
+3. O `postinstall` roda `prisma generate` automaticamente
+4. Rode `prisma migrate deploy` no banco de produção

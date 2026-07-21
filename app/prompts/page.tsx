@@ -49,13 +49,13 @@ export default function PromptsPage() {
     });
   }, [prompts, query, selectedTag]);
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!title.trim() || !content.trim()) return;
     const tags = tagsInput
       .split(',')
       .map((t) => t.trim())
       .filter(Boolean);
-    addPrompt({ title, content, tags });
+    await addPrompt({ title, content, tags });
     setTitle('');
     setContent('');
     setTagsInput('');
@@ -71,9 +71,9 @@ export default function PromptsPage() {
     setEditTags((p.tags || []).join(', '));
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editingId) return;
-    updatePrompt(editingId, {
+    await updatePrompt(editingId, {
       title: editTitle.trim(),
       content: editContent.trim(),
       tags: editTags.split(',').map((t) => t.trim()).filter(Boolean),

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Initialize PouchDB with IndexedDB adapter for browser
 let db: any = null;
 let PouchDB: any = null;
@@ -46,7 +47,7 @@ export const saveBoard = async (boardId: string, data: any): Promise<void> => {
     try {
       const existing = await database.get(boardId);
       doc._rev = existing._rev;
-    } catch (err) {
+    } catch {
       // Document doesn't exist, will create new one
     }
 
@@ -203,14 +204,18 @@ export const loadKanbanFromAPI = async (boardId: string): Promise<{ columns: API
 };
 
 // Sync individual card to API
-export const syncCardToAPI = async (boardId: string, card: any, isNew: boolean = false): Promise<APIKanbanCard | null> => {
+export const syncCardToAPI = async (
+  boardId: string,
+  card: any,
+  isNew: boolean = false,
+  options?: { move?: boolean }
+): Promise<APIKanbanCard | null> => {
   if (typeof window === 'undefined' || !navigator.onLine) {
     return null;
   }
 
   try {
     if (isNew) {
-      // Create new card
       const response = await fetch(`/api/kanban/${boardId}/cards`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -230,29 +235,33 @@ export const syncCardToAPI = async (boardId: string, card: any, isNew: boolean =
 
       const data = await response.json();
       return data.card;
-    } else {
-      // Update existing card
-      const response = await fetch(`/api/kanban/${boardId}/cards`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          id: card.id,
-          title: card.title,
-          description: card.description,
-          tags: card.tags || [],
-          priority: card.priority,
-          newColumnId: card.columnId, // For moving between columns
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to update card: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data.card;
     }
+
+    const payload: Record<string, unknown> = {
+      id: card.id,
+      title: card.title,
+      description: card.description,
+      tags: card.tags || [],
+      priority: card.priority,
+    };
+
+    if (options?.move) {
+      payload.newColumnId = card.columnId;
+    }
+
+    const response = await fetch(`/api/kanban/${boardId}/cards`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to update card: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.card;
   } catch (error) {
     console.error('Error syncing card to API:', error);
     return null;
@@ -307,9 +316,24 @@ export const syncColumnToAPI = async (boardId: string, column: any, isNew: boole
       const data = await response.json();
       return data.column;
     } else {
-      // Note: API doesn't have PATCH for columns yet, but we can add it if needed
-      console.log('Column update not implemented in API yet');
-      return null;
+      const response = await fetch(`/api/kanban/${boardId}/columns`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          id: column.id,
+          title: column.title,
+          color: column.color,
+          position: column.position,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update column: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.column;
     }
   } catch (error) {
     console.error('Error syncing column to API:', error);
@@ -377,5 +401,104 @@ export const syncWithAPI = async (boardId: string, data: { columns?: any[]; card
   } catch (error) {
     console.error('Error syncing with API:', error);
   }
+};
+
+export const deleteColumnFromAPI = async (boardId: string, columnId: string): Promise<boolean> => {
+  if (typeof window === 'undefined' || !navigator.onLine) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(`/api/kanban/${boardId}/columns?id=${columnId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+
+    return response.ok;
+  } catch (error) {
+    console.error('Error deleting column from API:', error);
+    return false;
+  }
+};
+
+export const createBoardInAPI = async (name: string) => {
+  if (typeof window === 'undefined' || !navigator.onLine) {
+    return null;
+  }
+
+  try {
+    const response = await fetch('/api/boards', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ name }),
+    });
+
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.board;
+  } catch (error) {
+    console.error('Error creating board in API:', error);
+    return null;
+  }
+};
+
+export const updateBoardInAPI = async (boardId: string, data: { name?: string; flowData?: unknown }) => {
+  if (typeof window === 'undefined' || !navigator.onLine) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(`/api/boards/${boardId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) return null;
+    const result = await response.json();
+    return result.board;
+  } catch (error) {
+    console.error('Error updating board in API:', error);
+    return null;
+  }
+};
+
+export const deleteBoardFromAPI = async (boardId: string) => {
+  if (typeof window === 'undefined' || !navigator.onLine) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(`/api/boards/${boardId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    return response.ok;
+  } catch (error) {
+    console.error('Error deleting board from API:', error);
+    return false;
+  }
+};
+
+export const loadFlowFromAPI = async (boardId: string) => {
+  if (typeof window === 'undefined' || !navigator.onLine || !boardId) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(`/api/boards/${boardId}`, { credentials: 'include' });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.board?.flowData ?? null;
+  } catch (error) {
+    console.error('Error loading flow from API:', error);
+    return null;
+  }
+};
+
+export const saveFlowToAPI = async (boardId: string, flowData: { nodes: unknown[]; edges: unknown[] }) => {
+  return updateBoardInAPI(boardId, { flowData });
 };
 

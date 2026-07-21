@@ -11,6 +11,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
   const handleSignUp = (provider: 'github' | 'google') => () => {
     const callbackUrl = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('callbackUrl') ?? '/' : '/';
     void signIn(provider, { callbackUrl });
@@ -19,14 +20,18 @@ export default function RegisterPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    setError('');
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, email, password }),
     });
     if (res.ok) {
-      const callbackUrl = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('callbackUrl') ?? '/' : '/';
+      const callbackUrl = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('callbackUrl') ?? '/board' : '/board';
       await signIn('credentials', { email, password, callbackUrl, redirect: true });
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || 'Não foi possível criar a conta.');
     }
     setSubmitting(false);
   };
@@ -83,6 +88,7 @@ export default function RegisterPage() {
             >
               {submitting ? 'Criando conta…' : 'Criar conta com email'}
             </button>
+            {error && <p className="text-sm text-red-400">{error}</p>}
           </form>
 
           <div className="flex flex-col gap-3">

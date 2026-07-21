@@ -1,23 +1,59 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { api } from '@/lib/api-client';
 import { useKanbanStore } from '@/lib/kanban-store';
 import { usePomodoroStore } from '@/lib/pomodoro-store';
 import { CheckCircle2, X, Search } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+interface TaskOption {
+  id: string;
+  title: string;
+  description?: string | null;
+}
 
 export function TaskSelector() {
   const { cards } = useKanbanStore();
-  const { currentTaskId, currentTaskTitle, setCurrentTask } = usePomodoroStore();
+  const { currentTaskTitle, setCurrentTask } = usePomodoroStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const [apiTasks, setApiTasks] = useState<TaskOption[]>([]);
 
-  // Filter tasks that are not completed
-  const availableTasks = cards.filter(
-    (card) =>
-      card.columnId !== 'done' &&
-      (card.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        card.description?.toLowerCase().includes(searchQuery.toLowerCase()))
+  useEffect(() => {
+    const loadTasks = async () => {
+      const result = await api.getKanbanTasks();
+      if (result?.cards) {
+        setApiTasks(
+          result.cards
+            .filter((card) => !card.isDone)
+            .map((card) => ({
+              id: card.id,
+              title: card.title,
+              description: card.description,
+            }))
+        );
+      }
+    };
+    void loadTasks();
+  }, []);
+
+  const localTasks = cards.filter((card) => {
+    const column = useKanbanStore.getState().columns.find((c) => c.id === card.columnId);
+    return column ? !/feito|done|conclu/i.test(column.title) : true;
+  });
+
+  const mergedTasks = [
+    ...apiTasks,
+    ...localTasks
+      .filter((local) => !apiTasks.some((api) => api.id === local.id))
+      .map((task) => ({ id: task.id, title: task.title, description: task.description })),
+  ];
+
+  const availableTasks = mergedTasks.filter(
+    (task) =>
+      task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      task.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleSelectTask = (taskId: string, taskTitle: string) => {
@@ -61,9 +97,7 @@ export function TaskSelector() {
           >
             <div className="flex items-center gap-2">
               <Search className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">
-                Selecionar tarefa para focar
-              </span>
+              <span className="text-sm text-muted-foreground">Selecionar tarefa para focar</span>
             </div>
           </button>
 
@@ -100,9 +134,7 @@ export function TaskSelector() {
                       >
                         <p className="font-medium text-foreground">{task.title}</p>
                         {task.description && (
-                          <p className="mt-1 text-xs text-muted-foreground line-clamp-1">
-                            {task.description}
-                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground line-clamp-1">{task.description}</p>
                         )}
                       </button>
                     ))
@@ -116,4 +148,3 @@ export function TaskSelector() {
     </div>
   );
 }
-

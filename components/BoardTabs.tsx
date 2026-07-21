@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useBoardsStore } from '@/lib/boards-store';
 import { useBoardStore } from '@/lib/store';
 import { Plus, X, Edit2, Check, X as XIcon } from 'lucide-react';
@@ -20,10 +20,10 @@ export function BoardTabs() {
     setBoardId(boardId);
   };
 
-  const handleAddBoard = () => {
+  const handleAddBoard = async () => {
     if (newBoardName.trim()) {
-      const newId = addBoard(newBoardName.trim());
-      setBoardId(newId);
+      const newId = await addBoard(newBoardName.trim());
+      if (newId) setBoardId(newId);
       setNewBoardName('');
       setShowNewBoardInput(false);
     }
@@ -34,9 +34,9 @@ export function BoardTabs() {
     setEditingName(board.name);
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (editingId && editingName.trim()) {
-      updateBoard(editingId, editingName.trim());
+      await updateBoard(editingId, editingName.trim());
       setEditingId(null);
       setEditingName('');
     }
@@ -47,10 +47,10 @@ export function BoardTabs() {
     setEditingName('');
   };
 
-  const handleDeleteBoard = (id: string, e: React.MouseEvent) => {
+  const handleDeleteBoard = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (boards.length > 1) {
-      deleteBoard(id);
+      await deleteBoard(id);
       if (activeBoardId === id && boards.length > 1) {
         const remainingBoards = boards.filter((b) => b.id !== id);
         if (remainingBoards.length > 0) {

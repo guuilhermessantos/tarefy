@@ -57,3 +57,50 @@ export async function POST(
 
   return NextResponse.json({ column }, { status: 201 });
 }
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ boardId: string }> }
+) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { boardId } = await params;
+  const body = await req.json();
+  const id = String(body?.id || '');
+  if (!id) return NextResponse.json({ error: 'Column id required' }, { status: 400 });
+
+  const column = await prisma.kanbanColumn.findFirst({
+    where: { id, board: { id: boardId, userId: session.user.id } },
+  });
+  if (!column) return NextResponse.json({ error: 'Column not found' }, { status: 404 });
+
+  const updates: { title?: string; color?: string | null; position?: number } = {};
+  if (body.title !== undefined) updates.title = String(body.title).trim();
+  if (body.color !== undefined) updates.color = body.color ? String(body.color) : null;
+  if (body.position !== undefined) updates.position = Number(body.position);
+
+  const updated = await prisma.kanbanColumn.update({ where: { id }, data: updates });
+  return NextResponse.json({ column: updated });
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ boardId: string }> }
+) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { boardId } = await params;
+  const { searchParams } = new URL(req.url);
+  const id = String(searchParams.get('id') || '');
+  if (!id) return NextResponse.json({ error: 'Column id required' }, { status: 400 });
+
+  const column = await prisma.kanbanColumn.findFirst({
+    where: { id, board: { id: boardId, userId: session.user.id } },
+  });
+  if (!column) return NextResponse.json({ error: 'Column not found' }, { status: 404 });
+
+  await prisma.kanbanColumn.delete({ where: { id } });
+  return NextResponse.json({ ok: true });
+}

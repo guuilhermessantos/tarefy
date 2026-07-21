@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useState, useCallback, useEffect } from 'react';
+import { memo, useState, useCallback } from 'react';
 import { Handle, Position, NodeProps, useReactFlow } from 'reactflow';
 import { motion } from 'framer-motion';
 import { HelpCircle, X } from 'lucide-react';
@@ -13,16 +13,14 @@ export interface DecisionNodeData {
 const DecisionNode = ({ id, data, selected }: NodeProps<DecisionNodeData>) => {
   const { setNodes, setEdges } = useReactFlow();
   const [isEditing, setIsEditing] = useState(false);
-  const [label, setLabel] = useState(data.label || 'Nova Decisão');
+  const [draftLabel, setDraftLabel] = useState('');
   const [showDelete, setShowDelete] = useState(false);
-
-  useEffect(() => {
-    setLabel(data.label || 'Nova Decisão');
-  }, [data.label]);
+  const displayLabel = data.label || 'Nova Decisão';
 
   const handleDoubleClick = useCallback(() => {
+    setDraftLabel(displayLabel);
     setIsEditing(true);
-  }, []);
+  }, [displayLabel]);
 
   const updateNodeLabel = useCallback(
     (newLabel: string) => {
@@ -39,17 +37,17 @@ const DecisionNode = ({ id, data, selected }: NodeProps<DecisionNodeData>) => {
 
   const handleBlur = useCallback(() => {
     setIsEditing(false);
-    updateNodeLabel(label);
-  }, [label, updateNodeLabel]);
+    updateNodeLabel(draftLabel);
+  }, [draftLabel, updateNodeLabel]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter') {
         setIsEditing(false);
-        updateNodeLabel(label);
+        updateNodeLabel(draftLabel);
       }
     },
-    [label, updateNodeLabel]
+    [draftLabel, updateNodeLabel]
   );
 
   const handleDelete = useCallback(
@@ -118,8 +116,8 @@ const DecisionNode = ({ id, data, selected }: NodeProps<DecisionNodeData>) => {
           {isEditing ? (
             <input
               type="text"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
+              value={draftLabel}
+              onChange={(e) => setDraftLabel(e.target.value)}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
               className="w-full bg-transparent text-foreground outline-none border-b-2 border-[#F59E0B] focus:border-[#F59E0B] text-center"
@@ -127,7 +125,7 @@ const DecisionNode = ({ id, data, selected }: NodeProps<DecisionNodeData>) => {
             />
           ) : (
             <p className="text-sm font-medium text-foreground break-words text-center">
-              {label}
+              {displayLabel}
             </p>
           )}
         </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useState, useCallback, useEffect } from 'react';
+import { memo, useState, useCallback } from 'react';
 import { Handle, Position, NodeProps, useReactFlow } from 'reactflow';
 import { motion } from 'framer-motion';
 import { Flag, X } from 'lucide-react';
@@ -13,16 +13,14 @@ export interface MilestoneNodeData {
 const MilestoneNode = ({ id, data, selected }: NodeProps<MilestoneNodeData>) => {
   const { setNodes, setEdges } = useReactFlow();
   const [isEditing, setIsEditing] = useState(false);
-  const [label, setLabel] = useState(data.label || 'Novo Marco');
+  const [draftLabel, setDraftLabel] = useState('');
   const [showDelete, setShowDelete] = useState(false);
-
-  useEffect(() => {
-    setLabel(data.label || 'Novo Marco');
-  }, [data.label]);
+  const displayLabel = data.label || 'Novo Marco';
 
   const handleDoubleClick = useCallback(() => {
+    setDraftLabel(displayLabel);
     setIsEditing(true);
-  }, []);
+  }, [displayLabel]);
 
   const updateNodeLabel = useCallback(
     (newLabel: string) => {
@@ -39,17 +37,17 @@ const MilestoneNode = ({ id, data, selected }: NodeProps<MilestoneNodeData>) => 
 
   const handleBlur = useCallback(() => {
     setIsEditing(false);
-    updateNodeLabel(label);
-  }, [label, updateNodeLabel]);
+    updateNodeLabel(draftLabel);
+  }, [draftLabel, updateNodeLabel]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter') {
         setIsEditing(false);
-        updateNodeLabel(label);
+        updateNodeLabel(draftLabel);
       }
     },
-    [label, updateNodeLabel]
+    [draftLabel, updateNodeLabel]
   );
 
   const handleDelete = useCallback(
@@ -118,8 +116,8 @@ const MilestoneNode = ({ id, data, selected }: NodeProps<MilestoneNodeData>) => 
           {isEditing ? (
             <input
               type="text"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
+              value={draftLabel}
+              onChange={(e) => setDraftLabel(e.target.value)}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
               className="w-full bg-transparent text-foreground outline-none border-b-2 border-[#7B61FF] focus:border-[#7B61FF]"
@@ -127,7 +125,7 @@ const MilestoneNode = ({ id, data, selected }: NodeProps<MilestoneNodeData>) => 
             />
           ) : (
             <p className="text-sm font-semibold text-foreground break-words">
-              {label}
+              {displayLabel}
             </p>
           )}
         </div>

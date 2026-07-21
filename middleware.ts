@@ -6,7 +6,13 @@ export async function middleware(req: NextRequest) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET });
   const { pathname } = req.nextUrl;
 
-  const needsAuth = pathname.startsWith('/board') || pathname.startsWith('/kanban') || pathname.startsWith('/prompts');
+  const needsAuth =
+    pathname.startsWith('/board') ||
+    pathname.startsWith('/kanban') ||
+    pathname.startsWith('/prompts') ||
+    pathname.startsWith('/pomodoro') ||
+    pathname.startsWith('/settings');
+
   if (!needsAuth) return NextResponse.next();
 
   if (!token) {
@@ -20,5 +26,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/board/:path*', '/kanban/:path*', '/prompts/:path*'],
+  matcher: ['/board/:path*', '/kanban/:path*', '/prompts/:path*', '/pomodoro/:path*', '/settings/:path*'],
 };

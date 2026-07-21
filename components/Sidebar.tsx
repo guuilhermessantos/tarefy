@@ -1,10 +1,14 @@
 'use client';
 
-import { Home, LayoutGrid, Settings, Plus, Columns, Timer, FileText } from 'lucide-react';
+import { Home, LayoutGrid, Plus, Columns, Timer, FileText, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
+
+const subscribe = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 const navItems = [
   { icon: Home, label: 'Home', href: '/' },
@@ -17,11 +21,7 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(subscribe, getClientSnapshot, getServerSnapshot);
 
   return (
     <aside className="fixed left-0 top-16 bottom-0 z-40 w-16 border-r border-border/50 bg-card/80 backdrop-blur-md">
@@ -55,19 +55,19 @@ export function Sidebar() {
             </Link>
           );
         })}
-        
+
         <div className="mt-auto">
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-            className="flex h-12 w-12 items-center justify-center rounded-xl bg-secondary text-secondary-foreground transition-all hover:bg-secondary/80"
-            title="Novo Quadro"
-          >
-            <Plus className="h-5 w-5" />
-          </motion.button>
+          <Link href="/board" title="Novo Quadro">
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
+              className="flex h-12 w-12 items-center justify-center rounded-xl bg-secondary text-secondary-foreground transition-all hover:bg-secondary/80"
+            >
+              <Plus className="h-5 w-5" />
+            </motion.button>
+          </Link>
         </div>
       </div>
     </aside>
   );
 }
-

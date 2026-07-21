@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -17,7 +17,8 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useBoardStore } from '@/lib/store';
-import { saveBoard, loadBoard } from '@/lib/pouchdb';
+import { saveBoard, loadBoard, loadFlowFromAPI, saveFlowToAPI } from '@/lib/pouchdb';
+import { isValidBoardId } from '@/lib/api-client';
 import TaskNode, { TaskNodeData } from './TaskNode';
 import NoteNode, { NoteNodeData } from './NoteNode';
 import MilestoneNode, { MilestoneNodeData } from './MilestoneNode';
@@ -76,26 +77,97 @@ export function FlowBoard() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNodeType, setSelectedNodeType] = useState<NodeType>('task');
   const [showNodeTypeMenu, setShowNodeTypeMenu] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const nodesRef = useRef(nodes);
+  const edgesRef = useRef(edges);
+  const boardIdRef = useRef(boardId);
+
+  useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
+
+  useEffect(() => {
+    edgesRef.current = edges;
+  }, [edges]);
+
+  useEffect(() => {
+    boardIdRef.current = boardId;
+  }, [boardId]);
+
+  const persistFlow = useCallback(
+    async (targetBoardId: string, nextNodes: Node[], nextEdges: Edge[]) => {
+      if (!targetBoardId) return;
+
+      setIsSaving(true);
+      setSaveStatus('saving');
+      try {
+        await saveBoard(targetBoardId, { nodes: nextNodes, edges: nextEdges });
+        if (isOnline && isValidBoardId(targetBoardId)) {
+          await saveFlowToAPI(targetBoardId, { nodes: nextNodes, edges: nextEdges });
+        }
+        setSaveStatus('saved');
+      } catch (error) {
+        console.error('Error saving board:', error);
+        setSaveStatus('error');
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [isOnline, setIsSaving]
+  );
+
+  const debouncedSave = useDebouncedCallback((nextNodes: Node[], nextEdges: Edge[]) => {
+    void persistFlow(boardIdRef.current, nextNodes, nextEdges);
+  }, 800);
 
   // Load board on mount or when boardId changes
   useEffect(() => {
+    let cancelled = false;
+
     const loadData = async () => {
+      setHasLoaded(false);
+      if (isValidBoardId(boardId)) {
+        const apiFlow = await loadFlowFromAPI(boardId);
+        if (!cancelled && apiFlow && Array.isArray(apiFlow.nodes)) {
+          const loadedNodes = apiFlow.nodes as Node[];
+          const loadedEdges = (apiFlow.edges as Edge[]) ?? [];
+          setNodes(loadedNodes);
+          setEdges(loadedEdges);
+          setStoreNodes(loadedNodes);
+          setStoreEdges(loadedEdges);
+          await saveBoard(boardId, { nodes: loadedNodes, edges: loadedEdges });
+          setHasLoaded(true);
+          return;
+        }
+      }
+
       const saved = await loadBoard(boardId);
-      if (saved && saved.nodes && saved.edges) {
+      if (cancelled) return;
+
+      if (saved && saved.nodes) {
         setNodes(saved.nodes);
-        setEdges(saved.edges);
+        setEdges(saved.edges ?? []);
         setStoreNodes(saved.nodes);
-        setStoreEdges(saved.edges);
+        setStoreEdges(saved.edges ?? []);
       } else {
-        // New board or empty board - reset to empty
         setNodes([]);
         setEdges([]);
         setStoreNodes([]);
         setStoreEdges([]);
       }
+      setHasLoaded(true);
     };
-    loadData();
-  }, [boardId, setNodes, setEdges, setStoreNodes, setStoreEdges]);
+
+    void loadData();
+
+    return () => {
+      cancelled = true;
+      debouncedSave.cancel();
+      void persistFlow(boardIdRef.current, nodesRef.current, edgesRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boardId]);
 
   // Sync with store
   useEffect(() => {
@@ -106,24 +178,18 @@ export function FlowBoard() {
     setStoreEdges(edges);
   }, [edges, setStoreEdges]);
 
-  // Auto-save with debounce
-  const debouncedSave = useDebouncedCallback(async (nodes: Node[], edges: Edge[]) => {
-    setIsSaving(true);
-    try {
-      await saveBoard(boardId, { nodes, edges });
-      // Note: syncWithAPI is only for Kanban (columns/cards), not for FlowBoard (nodes/edges)
-    } catch (error) {
-      console.error('Error saving board:', error);
-    } finally {
-      setIsSaving(false);
-    }
-  }, 1000);
+  useEffect(() => {
+    if (!hasLoaded) return;
+    debouncedSave(nodes, edges);
+  }, [nodes, edges, debouncedSave, isOnline, hasLoaded]);
 
   useEffect(() => {
-    if (nodes.length > 0 || edges.length > 0) {
-      debouncedSave(nodes, edges);
-    }
-  }, [nodes, edges, debouncedSave]);
+    const handleBeforeUnload = () => {
+      debouncedSave.flush();
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [debouncedSave]);
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -224,13 +290,6 @@ export function FlowBoard() {
     setShowNodeTypeMenu(false);
   }, [setNodes, selectedNodeType]);
 
-  const onNodeDoubleClick = useCallback(
-    (_: React.MouseEvent, node: Node<TaskNodeData>) => {
-      // Handle node editing if needed
-    },
-    []
-  );
-
   const deleteSelectedNodes = useCallback(() => {
     const selectedNodes = nodes.filter((node) => node.selected);
     if (selectedNodes.length === 0) return;
@@ -309,15 +368,6 @@ export function FlowBoard() {
     URL.revokeObjectURL(url);
   }, [nodes, edges]);
 
-  const flowTheme = useMemo(
-    () => ({
-      background: '#0F0F10',
-      text: '#EDEDED',
-      primary: '#00E091',
-    }),
-    []
-  );
-
   return (
     <div className="h-[calc(100vh-4rem)] w-full">
       <ReactFlow
@@ -326,7 +376,6 @@ export function FlowBoard() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        onNodeDoubleClick={onNodeDoubleClick}
         nodeTypes={nodeTypes}
         fitView
         className="bg-background"
@@ -366,6 +415,14 @@ export function FlowBoard() {
           }}
           maskColor="rgba(15, 15, 16, 0.6)"
         />
+        <Panel position="top-right" className="mt-4 mr-4">
+          <div className="rounded-lg border border-border bg-card/90 px-3 py-2 text-xs text-muted-foreground backdrop-blur">
+            {saveStatus === 'saving' && 'Salvando...'}
+            {saveStatus === 'saved' && 'Salvo ✓'}
+            {saveStatus === 'error' && 'Erro ao salvar'}
+            {saveStatus === 'idle' && 'Auto-save ativo'}
+          </div>
+        </Panel>
         <Panel position="top-center" className="mt-4">
           <div className="flex gap-2 items-center">
             <div className="relative node-type-menu">
