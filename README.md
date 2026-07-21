@@ -85,6 +85,6 @@ Acesse [http://localhost:3000](http://localhost:3000)
    - `DATABASE_URL` — connection string do Neon/PostgreSQL
    - `AUTH_SECRET` e `NEXTAUTH_SECRET` — mesma string aleatória forte
    - `NEXTAUTH_URL` — URL de produção (ex: `https://tarefy.vercel.app`)
-2. O build roda `prisma migrate deploy` automaticamente
-3. Crie uma conta em `/register` (o seed local não roda em produção)
+2. O build roda `prisma migrate deploy` (cria `public_tarefy`) e `prisma db seed`
+3. Login de teste em produção (após seed): `teste@tarefy.local` / `senha123`
 4. OAuth GitHub/Google é opcional; email/senha funciona sem isso

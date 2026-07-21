@@ -1,11 +1,28 @@
- 
 const { PrismaClient } = require('@prisma/client');
 const { hash } = require('bcryptjs');
 
-const prisma = new PrismaClient();
+function getDatabaseUrl() {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error('DATABASE_URL is not set');
+  }
 
-async function main() {
-  // Clean existing data for a deterministic seed
+  const parsed = new URL(url);
+  parsed.searchParams.set('schema', 'public_tarefy');
+  return parsed.toString();
+}
+
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: getDatabaseUrl(),
+    },
+  },
+});
+
+const TEST_USER_EMAIL = 'teste@tarefy.local';
+
+async function resetDatabase() {
   await prisma.verificationToken.deleteMany();
   await prisma.session.deleteMany();
   await prisma.account.deleteMany();
@@ -15,21 +32,12 @@ async function main() {
   await prisma.prompt.deleteMany();
   await prisma.pomodoroSession.deleteMany();
   await prisma.user.deleteMany();
+}
 
-  // Create base user with credentials (password: "senha123")
-  const user = await prisma.user.create({
-    data: {
-      name: 'Usuário de Teste',
-      email: 'teste@tarefy.local',
-      image: null,
-      passwordHash: await hash('senha123', 10),
-    },
-  });
-
-  // Create an auth account (mock)
+async function seedDemoData(userId) {
   await prisma.account.create({
     data: {
-      userId: user.id,
+      userId,
       type: 'oauth',
       provider: 'github',
       providerAccountId: 'github-12345',
@@ -38,32 +46,29 @@ async function main() {
     },
   });
 
-  // Create a session (expires in 30 days)
   const expires = new Date();
   expires.setDate(expires.getDate() + 30);
   await prisma.session.create({
     data: {
-      userId: user.id,
+      userId,
       sessionToken: 'session-token-123',
       expires,
     },
   });
 
-  // Create a verification token (example)
   const vtExpires = new Date();
   vtExpires.setHours(vtExpires.getHours() + 2);
   await prisma.verificationToken.create({
     data: {
-      identifier: 'teste@tarefy.local',
+      identifier: TEST_USER_EMAIL,
       token: 'verification-token-abc',
       expires: vtExpires,
     },
   });
 
-  // Create Board with Columns and Cards
   const board = await prisma.board.create({
     data: {
-      userId: user.id,
+      userId,
       name: 'Board de Teste',
     },
   });
@@ -124,17 +129,16 @@ async function main() {
     ],
   });
 
-  // Create Prompts
   await prisma.prompt.createMany({
     data: [
       {
-        userId: user.id,
+        userId,
         title: 'Ideias para foco',
         content: 'Liste 5 formas de melhorar o foco hoje.',
         tags: ['foco', 'produtividade'],
       },
       {
-        userId: user.id,
+        userId,
         title: 'Revisão diária',
         content: 'Quais foram os 3 maiores aprendizados do dia?',
         tags: ['reflexão'],
@@ -142,12 +146,11 @@ async function main() {
     ],
   });
 
-  // Create Pomodoro Sessions
   const now = new Date();
   await prisma.pomodoroSession.createMany({
     data: [
       {
-        userId: user.id,
+        userId,
         taskId: null,
         taskTitle: 'Leitura de documentação',
         mode: 'focus',
@@ -156,7 +159,7 @@ async function main() {
         completed: true,
       },
       {
-        userId: user.id,
+        userId,
         taskId: null,
         taskTitle: 'Pausa curta',
         mode: 'shortBreak',
@@ -166,8 +169,35 @@ async function main() {
       },
     ],
   });
+}
+
+async function main() {
+  const existingUser = await prisma.user.findUnique({
+    where: { email: TEST_USER_EMAIL },
+  });
+
+  if (existingUser) {
+    console.log('Seed: usuário de teste já existe, nada a fazer.');
+    return;
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    await resetDatabase();
+  }
+
+  const user = await prisma.user.create({
+    data: {
+      name: 'Usuário de Teste',
+      email: TEST_USER_EMAIL,
+      image: null,
+      passwordHash: await hash('senha123', 10),
+    },
+  });
+
+  await seedDemoData(user.id);
 
   console.log('Seed concluído com sucesso.');
+  console.log(`Login: ${TEST_USER_EMAIL} / senha123`);
 }
 
 main()
@@ -178,5 +208,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-
