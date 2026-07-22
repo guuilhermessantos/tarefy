@@ -5,6 +5,11 @@ import GitHubProvider from 'next-auth/providers/github';
 import GoogleProvider from 'next-auth/providers/google';
 import { prisma } from '@/lib/db';
 
+function env(name: string): string | undefined {
+  const value = process.env[name]?.trim();
+  return value || undefined;
+}
+
 const providers: Provider[] = [
   CredentialsProvider({
     name: 'Credentials',
@@ -29,21 +34,21 @@ const providers: Provider[] = [
   }),
 ];
 
-if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
+if (env('GITHUB_CLIENT_ID') && env('GITHUB_CLIENT_SECRET')) {
   providers.push(
     GitHubProvider({
-      clientId: process.env.GITHUB_CLIENT_ID,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      clientId: env('GITHUB_CLIENT_ID')!,
+      clientSecret: env('GITHUB_CLIENT_SECRET')!,
       allowDangerousEmailAccountLinking: true,
     }),
   );
 }
 
-if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+if (env('GOOGLE_CLIENT_ID') && env('GOOGLE_CLIENT_SECRET')) {
   providers.push(
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      clientId: env('GOOGLE_CLIENT_ID')!,
+      clientSecret: env('GOOGLE_CLIENT_SECRET')!,
       allowDangerousEmailAccountLinking: true,
     }),
   );

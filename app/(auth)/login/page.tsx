@@ -21,7 +21,7 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<OAuthProvider | null>(null);
   const [error, setError] = useState('');
-  const [providers, setProviders] = useState<ProviderMap>({});
+  const [oauthStatus, setOauthStatus] = useState<ProviderMap>({});
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -34,20 +34,11 @@ export default function LoginPage() {
   useEffect(() => {
     void fetch('/api/auth/providers')
       .then((response) => response.json())
-      .then((data: ProviderMap) => setProviders(data))
-      .catch(() => setProviders({}));
+      .then((data: ProviderMap) => setOauthStatus(data))
+      .catch(() => setOauthStatus({}));
   }, []);
 
   const handleSignIn = (provider: OAuthProvider) => async () => {
-    if (!providers[provider]) {
-      setError(
-        provider === 'github'
-          ? 'GitHub OAuth não está configurado no servidor. Verifique GITHUB_CLIENT_ID e GITHUB_CLIENT_SECRET na Vercel.'
-          : 'Google OAuth não está configurado no servidor.',
-      );
-      return;
-    }
-
     setError('');
     setOauthLoading(provider);
     const callbackUrl = getAbsoluteCallbackUrl(
@@ -127,6 +118,12 @@ export default function LoginPage() {
           </form>
 
           {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
+
+          {!oauthStatus.google && Object.keys(oauthStatus).length > 0 && (
+            <p className="mb-4 text-xs text-amber-400">
+              Google ainda não aparece no servidor. Confira GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e faça redeploy na Vercel.
+            </p>
+          )}
 
           <div className="flex flex-col gap-3">
             <button

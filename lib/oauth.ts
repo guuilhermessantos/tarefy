@@ -40,7 +40,8 @@ export function getAuthErrorMessage(error: string): string {
   const messages: Record<string, string> = {
     github:
       'Falha ao iniciar login GitHub. Tente novamente — se persistir, confira NEXTAUTH_URL e callback URL.',
-    google: 'Falha ao iniciar login Google. Tente novamente.',
+    google:
+      'Google OAuth não configurado no servidor. Confira GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET na Vercel e faça redeploy.',
     Configuration:
       'OAuth mal configurado. Confira NEXTAUTH_URL (URL da Vercel), GITHUB_CLIENT_ID e GITHUB_CLIENT_SECRET.',
     AccessDenied: 'Login cancelado ou acesso negado.',
