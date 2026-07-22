@@ -5,6 +5,12 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Github, Chrome, ArrowLeft } from 'lucide-react';
+import {
+  getAuthErrorMessage,
+  getOAuthSignInUrl,
+  normalizeCallback,
+  type OAuthProvider,
+} from '@/lib/oauth';
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
@@ -12,9 +18,12 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const handleSignUp = (provider: 'github' | 'google') => () => {
-    const callbackUrl = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('callbackUrl') ?? '/' : '/';
-    void signIn(provider, { callbackUrl });
+  const handleSignUp = (provider: OAuthProvider) => () => {
+    const callbackUrl = normalizeCallback(
+      new URLSearchParams(window.location.search).get('callbackUrl'),
+      '/board',
+    );
+    window.location.assign(getOAuthSignInUrl(provider, callbackUrl));
   };
 
   const handleRegister = async (e: React.FormEvent) => {
