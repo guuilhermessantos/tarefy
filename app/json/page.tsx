@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Header } from '@/components/Header';
 import { Sidebar } from '@/components/Sidebar';
 import { ParticlesBackground } from '@/components/ParticlesBackground';
+import { JsonCodeEditor } from '@/components/JsonCodeEditor';
 import { Braces, Check, Copy, Minimize2, Trash2, Wand2 } from 'lucide-react';
 
 const STORAGE_KEY = 'tarefy-json-editor';
@@ -162,18 +163,16 @@ export default function JsonPage() {
             </div>
 
             <div className="min-h-0 flex-1 rounded-2xl border border-border bg-card/80 p-1 backdrop-blur">
-              <textarea
+              <JsonCodeEditor
                 value={input}
-                onChange={(e) => {
-                  setInput(e.target.value);
-                  if (error) validate(e.target.value);
+                onChange={(value) => {
+                  setInput(value);
+                  if (error) validate(value);
                 }}
                 onBlur={() => {
                   if (input.trim()) validate(input);
                 }}
-                spellCheck={false}
                 placeholder='Cole seu JSON aqui, ex: { "hello": "world" }'
-                className="h-full min-h-[420px] w-full resize-none rounded-xl bg-background/80 p-4 font-mono text-sm leading-relaxed text-foreground outline-none placeholder:text-muted-foreground/60"
               />
             </div>
           </div>
