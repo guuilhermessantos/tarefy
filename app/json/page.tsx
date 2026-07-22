@@ -1,11 +1,24 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Header } from '@/components/Header';
 import { Sidebar } from '@/components/Sidebar';
 import { ParticlesBackground } from '@/components/ParticlesBackground';
-import { JsonCodeEditor } from '@/components/JsonCodeEditor';
+import type { JsonCodeEditorHandle } from '@/components/JsonCodeEditor';
 import { Braces, Check, Copy, Minimize2, Trash2, Wand2 } from 'lucide-react';
+
+const JsonCodeEditor = dynamic(
+  () => import('@/components/JsonCodeEditor').then((module) => module.JsonCodeEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full min-h-[420px] items-center justify-center rounded-xl bg-background/80 text-sm text-muted-foreground">
+        Carregando editor…
+      </div>
+    ),
+  },
+);
 
 const STORAGE_KEY = 'tarefy-json-editor';
 
@@ -28,6 +41,7 @@ function parseJsonError(message: string, input: string): string {
 }
 
 export default function JsonPage() {
+  const editorRef = useRef<JsonCodeEditorHandle>(null);
   const [input, setInput] = useState(DEFAULT_JSON);
   const [indent, setIndent] = useState<2 | 4>(2);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +63,11 @@ export default function JsonPage() {
   }, [input]);
 
   const validate = useCallback((value: string) => {
+    if (!value.trim()) {
+      setError(null);
+      return true;
+    }
+
     try {
       JSON.parse(value);
       setError(null);
@@ -60,10 +79,9 @@ export default function JsonPage() {
     }
   }, []);
 
-  const formatJson = () => {
+  const formatJson = async () => {
     if (!validate(input)) return;
-    const parsed = JSON.parse(input);
-    setInput(JSON.stringify(parsed, null, indent));
+    await editorRef.current?.formatDocument();
   };
 
   const minifyJson = () => {
@@ -81,6 +99,7 @@ export default function JsonPage() {
   const clearJson = () => {
     setInput('');
     setError(null);
+    editorRef.current?.focus();
   };
 
   return (
@@ -98,7 +117,7 @@ export default function JsonPage() {
                   JSON Editor
                 </h1>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Cole, edite, valide e formate JSON no navegador.
+                  Editor estilo VS Code com syntax highlight, folding e atalhos.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -115,7 +134,7 @@ export default function JsonPage() {
                 </label>
                 <button
                   type="button"
-                  onClick={formatJson}
+                  onClick={() => void formatJson()}
                   className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
                 >
                   <Wand2 className="h-4 w-4" />
@@ -162,19 +181,26 @@ export default function JsonPage() {
               ) : null}
             </div>
 
-            <div className="min-h-0 flex-1 rounded-2xl border border-border bg-card/80 p-1 backdrop-blur">
+            <div className="min-h-0 flex-1 rounded-2xl border border-border bg-[#1e1e1e] p-1 backdrop-blur">
               <JsonCodeEditor
+                ref={editorRef}
                 value={input}
+                tabSize={indent}
                 onChange={(value) => {
                   setInput(value);
                   if (error) validate(value);
                 }}
-                onBlur={() => {
-                  if (input.trim()) validate(input);
-                }}
-                placeholder='Cole seu JSON aqui, ex: { "hello": "world" }'
+                onBlur={() => validate(input)}
               />
             </div>
+
+            <p className="mt-3 text-xs text-muted-foreground">
+              Atalhos: <kbd className="rounded border border-border px-1">Shift+Alt+F</kbd> formatar ·{' '}
+              <kbd className="rounded border border-border px-1">Ctrl+F</kbd> buscar ·{' '}
+              <kbd className="rounded border border-border px-1">Ctrl+H</kbd> substituir ·{' '}
+              <kbd className="rounded border border-border px-1">Ctrl+Z</kbd> desfazer ·{' '}
+              <kbd className="rounded border border-border px-1">Alt+Click</kbd> multi-cursor
+            </p>
           </div>
         </main>
       </div>
