@@ -8,8 +8,8 @@ import { Github, ArrowLeft, ArrowRight, Chrome } from 'lucide-react';
 import {
   getAbsoluteCallbackUrl,
   getAuthErrorMessage,
-  getOAuthSignInUrl,
   normalizeCallback,
+  startOAuthSignIn,
   type OAuthProvider,
 } from '@/lib/oauth';
 
@@ -38,7 +38,7 @@ export default function LoginPage() {
       .catch(() => setProviders({}));
   }, []);
 
-  const handleSignIn = (provider: OAuthProvider) => () => {
+  const handleSignIn = (provider: OAuthProvider) => async () => {
     if (!providers[provider]) {
       setError(
         provider === 'github'
@@ -53,7 +53,13 @@ export default function LoginPage() {
     const callbackUrl = getAbsoluteCallbackUrl(
       normalizeCallback(new URLSearchParams(window.location.search).get('callbackUrl')),
     );
-    window.location.assign(getOAuthSignInUrl(provider, callbackUrl));
+
+    try {
+      await startOAuthSignIn(provider, callbackUrl);
+    } catch {
+      setError('Não foi possível iniciar o login OAuth. Tente novamente.');
+      setOauthLoading(null);
+    }
   };
 
   const handleCredentials = async (e: React.FormEvent) => {

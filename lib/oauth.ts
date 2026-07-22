@@ -1,8 +1,33 @@
 export type OAuthProvider = 'github' | 'google';
 
-export function getOAuthSignInUrl(provider: OAuthProvider, callbackUrl: string) {
-  const params = new URLSearchParams({ callbackUrl });
-  return `/api/auth/signin/${provider}?${params.toString()}`;
+/** OAuth no NextAuth v4 exige POST com CSRF — GET em /api/auth/signin/github gera ?error=github */
+export async function startOAuthSignIn(provider: OAuthProvider, callbackUrl: string) {
+  const response = await fetch('/api/auth/csrf');
+  if (!response.ok) {
+    throw new Error('Não foi possível obter o token CSRF.');
+  }
+
+  const { csrfToken } = (await response.json()) as { csrfToken: string };
+
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = `/api/auth/signin/${provider}`;
+  form.style.display = 'none';
+
+  const csrfInput = document.createElement('input');
+  csrfInput.type = 'hidden';
+  csrfInput.name = 'csrfToken';
+  csrfInput.value = csrfToken;
+  form.appendChild(csrfInput);
+
+  const callbackInput = document.createElement('input');
+  callbackInput.type = 'hidden';
+  callbackInput.name = 'callbackUrl';
+  callbackInput.value = callbackUrl;
+  form.appendChild(callbackInput);
+
+  document.body.appendChild(form);
+  form.submit();
 }
 
 export function getAbsoluteCallbackUrl(path: string): string {
@@ -13,6 +38,9 @@ export function getAbsoluteCallbackUrl(path: string): string {
 
 export function getAuthErrorMessage(error: string): string {
   const messages: Record<string, string> = {
+    github:
+      'Falha ao iniciar login GitHub. Tente novamente — se persistir, confira NEXTAUTH_URL e callback URL.',
+    google: 'Falha ao iniciar login Google. Tente novamente.',
     Configuration:
       'OAuth mal configurado. Confira NEXTAUTH_URL (URL da Vercel), GITHUB_CLIENT_ID e GITHUB_CLIENT_SECRET.',
     AccessDenied: 'Login cancelado ou acesso negado.',
