@@ -9,6 +9,7 @@ import {
   Timer,
   Workflow,
   MessageSquare,
+  Braces,
   Shield,
   Database,
   Cloud,
@@ -69,11 +70,12 @@ export default function Home() {
 
       {/* Quick Apps */}
       <section className="mx-auto max-w-6xl px-6 pb-8 md:px-8">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <CardLink href="/board" title="Flow Board" description="Organize ideias em nós e conexões" icon={<Workflow className="h-5 w-5" />} />
           <CardLink href="/kanban" title="Kanban" description="Planeje com colunas e cartões" icon={<KanbanSquare className="h-5 w-5" />} />
           <CardLink href="/pomodoro" title="Pomodoro" description="Foco com sessões cronometradas" icon={<Timer className="h-5 w-5" />} />
           <CardLink href="/prompts" title="Prompts" description="Guarde e reutilize prompts úteis" icon={<MessageSquare className="h-5 w-5" />} />
+          <CardLink href="/json" title="JSON Editor" description="Formate, valide e edite JSON" icon={<Braces className="h-5 w-5" />} />
         </div>
       </section>
 

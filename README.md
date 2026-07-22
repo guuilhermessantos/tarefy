@@ -67,6 +67,7 @@ Acesse [http://localhost:3000](http://localhost:3000)
 | `/kanban` | Kanban |
 | `/pomodoro` | Timer Pomodoro |
 | `/prompts` | Biblioteca de prompts |
+| `/json` | Editor e formatador JSON |
 | `/settings` | Configurações do Pomodoro |
 | `/login`, `/register` | Autenticação |
 

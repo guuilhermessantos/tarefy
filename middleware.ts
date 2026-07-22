@@ -16,6 +16,7 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/board') ||
     pathname.startsWith('/kanban') ||
     pathname.startsWith('/prompts') ||
+    pathname.startsWith('/json') ||
     pathname.startsWith('/pomodoro') ||
     pathname.startsWith('/settings');
 
@@ -32,5 +33,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/board/:path*', '/kanban/:path*', '/prompts/:path*', '/pomodoro/:path*', '/settings/:path*'],
+  matcher: ['/board/:path*', '/kanban/:path*', '/prompts/:path*', '/json/:path*', '/pomodoro/:path*', '/settings/:path*'],
 };

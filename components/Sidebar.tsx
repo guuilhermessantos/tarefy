@@ -1,6 +1,6 @@
 'use client';
 
-import { Home, LayoutGrid, Plus, Columns, Timer, FileText, Settings } from 'lucide-react';
+import { Home, LayoutGrid, Plus, Columns, Timer, FileText, Settings, Braces } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -16,6 +16,7 @@ const navItems = [
   { icon: Columns, label: 'Kanban', href: '/kanban' },
   { icon: Timer, label: 'Pomodoro', href: '/pomodoro' },
   { icon: FileText, label: 'Prompts', href: '/prompts' },
+  { icon: Braces, label: 'JSON', href: '/json' },
   { icon: Settings, label: 'Config', href: '/settings' },
 ];
 
