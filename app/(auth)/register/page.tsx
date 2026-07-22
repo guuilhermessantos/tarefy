@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Github, Chrome, ArrowLeft } from 'lucide-react';
 import {
-  getAuthErrorMessage,
+  getAbsoluteCallbackUrl,
   getOAuthSignInUrl,
   normalizeCallback,
   type OAuthProvider,
@@ -19,9 +19,8 @@ export default function RegisterPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const handleSignUp = (provider: OAuthProvider) => () => {
-    const callbackUrl = normalizeCallback(
-      new URLSearchParams(window.location.search).get('callbackUrl'),
-      '/board',
+    const callbackUrl = getAbsoluteCallbackUrl(
+      normalizeCallback(new URLSearchParams(window.location.search).get('callbackUrl'), '/board'),
     );
     window.location.assign(getOAuthSignInUrl(provider, callbackUrl));
   };

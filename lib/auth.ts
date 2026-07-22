@@ -3,7 +3,6 @@ import type { Provider } from 'next-auth/providers/index';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GitHubProvider from 'next-auth/providers/github';
 import GoogleProvider from 'next-auth/providers/google';
-import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import { prisma } from '@/lib/db';
 
 const providers: Provider[] = [
@@ -35,6 +34,7 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
     GitHubProvider({
       clientId: process.env.GITHUB_CLIENT_ID,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      allowDangerousEmailAccountLinking: true,
     }),
   );
 }
@@ -44,12 +44,58 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      allowDangerousEmailAccountLinking: true,
     }),
   );
 }
 
+async function upsertOAuthUser(input: {
+  email: string;
+  name?: string | null;
+  image?: string | null;
+  provider: string;
+  providerAccountId: string;
+}) {
+  let user = await prisma.user.findUnique({ where: { email: input.email } });
+
+  if (!user) {
+    user = await prisma.user.create({
+      data: {
+        email: input.email,
+        name: input.name,
+        image: input.image,
+      },
+    });
+  } else if (input.name || input.image) {
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        name: input.name ?? user.name,
+        image: input.image ?? user.image,
+      },
+    });
+  }
+
+  await prisma.account.upsert({
+    where: {
+      provider_providerAccountId: {
+        provider: input.provider,
+        providerAccountId: input.providerAccountId,
+      },
+    },
+    update: { userId: user.id },
+    create: {
+      userId: user.id,
+      type: 'oauth',
+      provider: input.provider,
+      providerAccountId: input.providerAccountId,
+    },
+  });
+
+  return user;
+}
+
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
   providers,
   session: { strategy: 'jwt' },
   secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
@@ -58,6 +104,38 @@ export const authOptions: NextAuthOptions = {
     signIn: '/login',
   },
   callbacks: {
+    async signIn({ user, account, profile }) {
+      if (!account || account.provider === 'credentials') return true;
+
+      const email =
+        user.email ??
+        (typeof profile === 'object' && profile && 'email' in profile
+          ? (profile.email as string | null | undefined)
+          : null);
+
+      if (!email) {
+        console.error('[auth] OAuth sem email do provider:', account.provider);
+        return '/login?error=OAuthEmailRequired';
+      }
+
+      if (!account.providerAccountId) {
+        return '/login?error=OAuthCallback';
+      }
+
+      try {
+        await upsertOAuthUser({
+          email,
+          name: user.name ?? null,
+          image: user.image ?? null,
+          provider: account.provider,
+          providerAccountId: account.providerAccountId,
+        });
+        return true;
+      } catch (error) {
+        console.error('[auth] Falha ao salvar usuário OAuth:', error);
+        return '/login?error=OAuthCreateAccount';
+      }
+    },
     async redirect({ url, baseUrl }) {
       try {
         const target = new URL(url);
@@ -69,10 +147,17 @@ export const authOptions: NextAuthOptions = {
         return `${baseUrl}${path}`;
       }
     },
-    async jwt({ token, user }) {
-      if (user) {
+    async jwt({ token, user, account }) {
+      if (user?.id && account?.provider === 'credentials') {
         token.id = user.id;
+        return token;
       }
+
+      if (user?.email) {
+        const dbUser = await prisma.user.findUnique({ where: { email: user.email } });
+        if (dbUser) token.id = dbUser.id;
+      }
+
       return token;
     },
     async session({ session, token }) {

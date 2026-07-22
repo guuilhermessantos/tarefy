@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Github, ArrowLeft, ArrowRight, Chrome } from 'lucide-react';
 import {
+  getAbsoluteCallbackUrl,
   getAuthErrorMessage,
   getOAuthSignInUrl,
   normalizeCallback,
@@ -49,8 +50,8 @@ export default function LoginPage() {
 
     setError('');
     setOauthLoading(provider);
-    const callbackUrl = normalizeCallback(
-      new URLSearchParams(window.location.search).get('callbackUrl'),
+    const callbackUrl = getAbsoluteCallbackUrl(
+      normalizeCallback(new URLSearchParams(window.location.search).get('callbackUrl')),
     );
     window.location.assign(getOAuthSignInUrl(provider, callbackUrl));
   };
@@ -117,8 +118,9 @@ export default function LoginPage() {
             >
               {submitting ? 'Entrando…' : 'Entrar com email e senha'}
             </button>
-            {error && <p className="text-sm text-red-400">{error}</p>}
           </form>
+
+          {error && <p className="mb-4 text-sm text-red-400">{error}</p>}
 
           <div className="flex flex-col gap-3">
             <button
