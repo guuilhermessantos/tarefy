@@ -5,6 +5,7 @@ import GitHubProvider from 'next-auth/providers/github';
 import GoogleProvider from 'next-auth/providers/google';
 import { prisma } from '@/lib/db';
 
+// 1
 function env(name: string): string | undefined {
   const value = process.env[name]?.trim();
   return value || undefined;
