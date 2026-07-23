@@ -369,7 +369,7 @@ export function FlowBoard() {
   }, [nodes, edges]);
 
   return (
-    <div className="h-[calc(100vh-4rem)] w-full">
+    <div className="h-full w-full">
       <ReactFlow
         nodes={nodes}
         edges={edges}
