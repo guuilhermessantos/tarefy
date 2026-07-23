@@ -5,13 +5,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Github, ArrowLeft, ArrowRight, Chrome } from 'lucide-react';
-import {
-  getAbsoluteCallbackUrl,
-  getAuthErrorMessage,
-  normalizeCallback,
-  startOAuthSignIn,
-  type OAuthProvider,
-} from '@/lib/oauth';
+import { getAuthErrorMessage, normalizeCallback, notifyOpenerAndClose, type OAuthProvider } from '@/lib/oauth';
+import { useOAuthSignIn } from '@/lib/use-oauth-signin';
 
 type ProviderMap = Partial<Record<OAuthProvider, { id: string; name: string }>>;
 
@@ -19,17 +14,27 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [oauthLoading, setOauthLoading] = useState<OAuthProvider | null>(null);
   const [error, setError] = useState('');
   const [oauthStatus, setOauthStatus] = useState<ProviderMap>({});
+  const { signIn: signInWithOAuth, loadingProvider, error: oauthError } = useOAuthSignIn();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const authError = params.get('error');
-    if (authError) {
-      setError(getAuthErrorMessage(authError));
+    if (!authError) return;
+
+    const message = getAuthErrorMessage(authError);
+    // Se o NextAuth redirecionou o erro para /login *dentro do popup* (ex.: conta já vinculada a
+    // outro provider), avisamos a janela principal e fechamos, em vez de mostrar o formulário
+    // de login inteiro dentro da janelinha pequena.
+    if (!notifyOpenerAndClose({ error: message, next: '/board' })) {
+      setError(message);
     }
   }, []);
+
+  useEffect(() => {
+    if (oauthError) setError(oauthError);
+  }, [oauthError]);
 
   useEffect(() => {
     void fetch('/api/auth/providers')
@@ -37,21 +42,6 @@ export default function LoginPage() {
       .then((data: ProviderMap) => setOauthStatus(data))
       .catch(() => setOauthStatus({}));
   }, []);
-
-  const handleSignIn = (provider: OAuthProvider) => async () => {
-    setError('');
-    setOauthLoading(provider);
-    const callbackUrl = getAbsoluteCallbackUrl(
-      normalizeCallback(new URLSearchParams(window.location.search).get('callbackUrl')),
-    );
-
-    try {
-      await startOAuthSignIn(provider, callbackUrl);
-    } catch {
-      setError('Não foi possível iniciar o login OAuth. Tente novamente.');
-      setOauthLoading(null);
-    }
-  };
 
   const handleCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,21 +118,21 @@ export default function LoginPage() {
           <div className="flex flex-col gap-3">
             <button
               type="button"
-              onClick={handleSignIn('github')}
-              disabled={oauthLoading !== null}
+              onClick={signInWithOAuth('github')}
+              disabled={loadingProvider !== null}
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 py-3 text-sm font-medium transition-colors hover:bg-muted/40 disabled:opacity-60"
             >
               <Github className="h-4 w-4" />
-              {oauthLoading === 'github' ? 'Redirecionando…' : 'Continuar com GitHub'}
+              {loadingProvider === 'github' ? 'Aguardando login…' : 'Continuar com GitHub'}
             </button>
             <button
               type="button"
-              onClick={handleSignIn('google')}
-              disabled={oauthLoading !== null}
+              onClick={signInWithOAuth('google')}
+              disabled={loadingProvider !== null}
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 py-3 text-sm font-medium transition-colors hover:bg-muted/40 disabled:opacity-60"
             >
               <Chrome className="h-4 w-4" />
-              {oauthLoading === 'google' ? 'Redirecionando…' : 'Continuar com Google'}
+              {loadingProvider === 'google' ? 'Aguardando login…' : 'Continuar com Google'}
             </button>
           </div>
 

@@ -1,16 +1,11 @@
 'use client';
 
 import { signIn } from 'next-auth/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Github, Chrome, ArrowLeft } from 'lucide-react';
-import {
-  getAbsoluteCallbackUrl,
-  normalizeCallback,
-  startOAuthSignIn,
-  type OAuthProvider,
-} from '@/lib/oauth';
+import { useOAuthSignIn } from '@/lib/use-oauth-signin';
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
@@ -18,12 +13,11 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const handleSignUp = (provider: OAuthProvider) => async () => {
-    const callbackUrl = getAbsoluteCallbackUrl(
-      normalizeCallback(new URLSearchParams(window.location.search).get('callbackUrl'), '/board'),
-    );
-    await startOAuthSignIn(provider, callbackUrl);
-  };
+  const { signIn: signUpWithOAuth, loadingProvider, error: oauthError } = useOAuthSignIn();
+
+  useEffect(() => {
+    if (oauthError) setError(oauthError);
+  }, [oauthError]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,18 +95,22 @@ export default function RegisterPage() {
 
           <div className="flex flex-col gap-3">
             <button
-              onClick={handleSignUp('github')}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 py-3 text-sm font-medium transition-colors hover:bg-muted/40"
+              type="button"
+              onClick={signUpWithOAuth('github')}
+              disabled={loadingProvider !== null}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 py-3 text-sm font-medium transition-colors hover:bg-muted/40 disabled:opacity-60"
             >
               <Github className="h-4 w-4" />
-              Continuar com GitHub
+              {loadingProvider === 'github' ? 'Aguardando login…' : 'Continuar com GitHub'}
             </button>
             <button
-              onClick={handleSignUp('google')}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 py-3 text-sm font-medium transition-colors hover:bg-muted/40"
+              type="button"
+              onClick={signUpWithOAuth('google')}
+              disabled={loadingProvider !== null}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 py-3 text-sm font-medium transition-colors hover:bg-muted/40 disabled:opacity-60"
             >
               <Chrome className="h-4 w-4" />
-              Continuar com Google
+              {loadingProvider === 'google' ? 'Aguardando login…' : 'Continuar com Google'}
             </button>
           </div>
 

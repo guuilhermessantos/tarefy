@@ -1,7 +1,27 @@
 export type OAuthProvider = 'github' | 'google';
 
-/** OAuth no NextAuth v4 exige POST com CSRF — GET em /api/auth/signin/github gera ?error=github */
-export async function startOAuthSignIn(provider: OAuthProvider, callbackUrl: string) {
+/** Nome da janela popup de OAuth — usado como `target` do form e para identificar a janela ao reabrir. */
+export const OAUTH_POPUP_NAME = 'tarefy-oauth-popup';
+
+/** Identifica mensagens de `postMessage` trocadas entre o popup de OAuth e a janela principal. */
+const OAUTH_MESSAGE_SOURCE = 'tarefy-oauth';
+
+export interface OAuthPopupMessage {
+  source: typeof OAUTH_MESSAGE_SOURCE;
+  error?: string | null;
+  next: string;
+}
+
+/**
+ * OAuth no NextAuth v4 exige POST com CSRF — GET em /api/auth/signin/github gera ?error=github.
+ * Se `popupTarget` for informado, a navegação resultante do submit acontece na janela com esse
+ * `target` (uma popup previamente aberta com `openOAuthPopup`) em vez da aba atual.
+ */
+export async function startOAuthSignIn(
+  provider: OAuthProvider,
+  callbackUrl: string,
+  popupTarget?: string,
+) {
   const response = await fetch('/api/auth/csrf');
   if (!response.ok) {
     throw new Error('Não foi possível obter o token CSRF.');
@@ -13,6 +33,7 @@ export async function startOAuthSignIn(provider: OAuthProvider, callbackUrl: str
   form.method = 'POST';
   form.action = `/api/auth/signin/${provider}`;
   form.style.display = 'none';
+  if (popupTarget) form.target = popupTarget;
 
   const csrfInput = document.createElement('input');
   csrfInput.type = 'hidden';
@@ -28,6 +49,41 @@ export async function startOAuthSignIn(provider: OAuthProvider, callbackUrl: str
 
   document.body.appendChild(form);
   form.submit();
+  form.remove();
+}
+
+/** Abre (ou foca, se já existir) a janela pequena onde o fluxo de OAuth vai rodar. */
+export function openOAuthPopup(): Window | null {
+  const width = 480;
+  const height = 640;
+  const left = window.screenX + (window.outerWidth - width) / 2;
+  const top = window.screenY + (window.outerHeight - height) / 2;
+
+  return window.open(
+    '',
+    OAUTH_POPUP_NAME,
+    `width=${width},height=${height},left=${Math.max(left, 0)},top=${Math.max(top, 0)},resizable=yes,scrollbars=yes`,
+  );
+}
+
+/**
+ * Chamado pela janela popup (na página de callback ou de erro) para avisar a janela que a abriu
+ * que o login terminou, e então se fechar. Retorna `false` quando a página não está numa popup
+ * (ex.: usuário abriu o link direto), permitindo o caller seguir com um fallback normal.
+ */
+export function notifyOpenerAndClose(payload: { error?: string | null; next: string }): boolean {
+  if (typeof window === 'undefined' || !window.opener || window.opener === window) {
+    return false;
+  }
+
+  const message: OAuthPopupMessage = { source: OAUTH_MESSAGE_SOURCE, ...payload };
+  window.opener.postMessage(message, window.location.origin);
+  window.close();
+  return true;
+}
+
+export function isOAuthPopupMessage(data: unknown): data is OAuthPopupMessage {
+  return typeof data === 'object' && data !== null && (data as { source?: unknown }).source === OAUTH_MESSAGE_SOURCE;
 }
 
 export function getAbsoluteCallbackUrl(path: string): string {
