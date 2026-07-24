@@ -8,6 +8,7 @@ Gerenciador de tarefas offline-first com canvas visual interativo, Kanban, Pomod
 - **Kanban**: colunas, cards, drag-and-drop e sync com API
 - **Pomodoro**: timer, stats e integração com tarefas do Kanban
 - **Prompts**: biblioteca de prompts com tags e busca
+- **JSON Editor**: editor de código (Monaco) com formatação, minificação, validação e cópia
 - **Offline-first**: PouchDB/localStorage com fila de sync ao reconectar
 - **Auth**: login por email/senha + OAuth (GitHub/Google)
 
