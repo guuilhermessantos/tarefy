@@ -24,14 +24,21 @@ export default function Home() {
       <div className="relative z-10">
         {/* Hero */}
         <section className="mx-auto flex max-w-6xl flex-col items-center px-6 pb-8 pt-20 md:px-8 md:pt-28">
-        <motion.h1
+        <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="text-center text-5xl font-bold tracking-tight text-foreground md:text-6xl"
+          className="flex flex-col items-center gap-5"
         >
-          Tarefy
-        </motion.h1>
+          <img
+            src="/logo.png"
+            alt="Tarefy"
+            className="h-20 w-20 rounded-2xl shadow-lg shadow-primary/20 md:h-24 md:w-24"
+          />
+          <h1 className="text-center text-5xl font-bold tracking-tight text-foreground md:text-6xl">
+            Tarefy
+          </h1>
+        </motion.div>
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

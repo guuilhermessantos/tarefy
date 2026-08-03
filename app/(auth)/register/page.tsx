@@ -55,6 +55,7 @@ export default function RegisterPage() {
 
         <div className="rounded-2xl border border-border bg-card/80 p-6 backdrop-blur">
           <div className="mb-6 text-center">
+            <img src="/logo.png" alt="Tarefy" className="mx-auto mb-4 h-14 w-14 rounded-xl" />
             <h1 className="text-2xl font-semibold">Criar conta</h1>
             <p className="mt-1 text-sm text-muted-foreground">Leva menos de um minuto</p>
           </div>

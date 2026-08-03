@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import Link from 'next/link';
 import { useBoardStore } from '@/lib/store';
 import { Wifi, WifiOff, LogOut, User, CloudUpload } from 'lucide-react';
 import { useSyncExternalStore } from 'react';
@@ -43,9 +44,10 @@ export function Header() {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-card/80 backdrop-blur-md">
       <div className="flex h-16 items-center justify-between px-6">
-        <div className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-90">
+          <img src="/logo.png" alt="Tarefy" className="h-8 w-8 rounded-lg" />
           <h1 className="text-xl font-semibold text-foreground">Tarefy</h1>
-        </div>
+        </Link>
         
         <div className="flex items-center gap-4">
           {mounted && (
