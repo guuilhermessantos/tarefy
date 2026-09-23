@@ -2,23 +2,21 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  getAbsoluteCallbackUrl,
   isOAuthPopupMessage,
   normalizeCallback,
   OAUTH_POPUP_NAME,
   openOAuthPopup,
-  startOAuthSignIn,
   type OAuthProvider,
 } from '@/lib/oauth';
 
 const POPUP_BLOCKED_MESSAGE =
   'Não foi possível abrir a janela de login. Verifique se o navegador está bloqueando pop-ups.';
-const START_FAILED_MESSAGE = 'Não foi possível iniciar o login OAuth. Tente novamente.';
 
 /**
- * Abre o login/cadastro OAuth (GitHub/Google) numa janela popup, mantendo a página atual intacta.
- * A popup termina o fluxo em `/auth/popup-callback`, que avisa esta janela via `postMessage`
- * e se fecha sozinha; então navegamos para o destino final (ex.: /board).
+ * Abre o login/cadastro OAuth (GitHub/Google) numa janela popup.
+ * O OAuth começa em `/auth/popup-start` (dentro do popup) para cookies CSRF/state
+ * ficarem corretos; termina em `/auth/popup-callback`, que avisa esta janela via
+ * `postMessage` e se fecha.
  */
 export function useOAuthSignIn(defaultDestination = '/board') {
   const [loadingProvider, setLoadingProvider] = useState<OAuthProvider | null>(null);
@@ -55,7 +53,7 @@ export function useOAuthSignIn(defaultDestination = '/board') {
   useEffect(() => stopWatchingPopup, [stopWatchingPopup]);
 
   const signIn = useCallback(
-    (provider: OAuthProvider) => async () => {
+    (provider: OAuthProvider) => () => {
       setError('');
       setLoadingProvider(provider);
 
@@ -69,18 +67,13 @@ export function useOAuthSignIn(defaultDestination = '/board') {
 
       const requestedCallback = new URLSearchParams(window.location.search).get('callbackUrl');
       const destination = normalizeCallback(requestedCallback, defaultDestination);
-      const popupCallbackUrl = getAbsoluteCallbackUrl(
-        `/auth/popup-callback?next=${encodeURIComponent(destination)}`,
-      );
+      const startUrl =
+        `/auth/popup-start?provider=${encodeURIComponent(provider)}` +
+        `&next=${encodeURIComponent(destination)}`;
 
-      try {
-        await startOAuthSignIn(provider, popupCallbackUrl, OAUTH_POPUP_NAME);
-      } catch {
-        popup.close();
-        stopWatchingPopup();
-        setError(START_FAILED_MESSAGE);
-        return;
-      }
+      // Navega o popup no mesmo gesto do clique (evita bloqueio e CSRF cruzado entre janelas).
+      popup.location.href = startUrl;
+      popup.focus();
 
       pollRef.current = window.setInterval(() => {
         if (popup.closed) stopWatchingPopup();

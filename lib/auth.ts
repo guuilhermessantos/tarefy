@@ -40,6 +40,7 @@ if (env('GITHUB_CLIENT_ID') && env('GITHUB_CLIENT_SECRET')) {
       clientId: env('GITHUB_CLIENT_ID')!,
       clientSecret: env('GITHUB_CLIENT_SECRET')!,
       allowDangerousEmailAccountLinking: true,
+      authorization: { params: { scope: 'read:user user:email' } },
     }),
   );
 }

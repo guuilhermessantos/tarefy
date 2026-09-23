@@ -1,6 +1,6 @@
 export type OAuthProvider = 'github' | 'google';
 
-/** Nome da janela popup de OAuth — usado como `target` do form e para identificar a janela ao reabrir. */
+/** Nome da janela popup de OAuth — usado para abrir/focar a mesma janela. */
 export const OAUTH_POPUP_NAME = 'tarefy-oauth-popup';
 
 /** Identifica mensagens de `postMessage` trocadas entre o popup de OAuth e a janela principal. */
@@ -10,46 +10,6 @@ export interface OAuthPopupMessage {
   source: typeof OAUTH_MESSAGE_SOURCE;
   error?: string | null;
   next: string;
-}
-
-/**
- * OAuth no NextAuth v4 exige POST com CSRF — GET em /api/auth/signin/github gera ?error=github.
- * Se `popupTarget` for informado, a navegação resultante do submit acontece na janela com esse
- * `target` (uma popup previamente aberta com `openOAuthPopup`) em vez da aba atual.
- */
-export async function startOAuthSignIn(
-  provider: OAuthProvider,
-  callbackUrl: string,
-  popupTarget?: string,
-) {
-  const response = await fetch('/api/auth/csrf');
-  if (!response.ok) {
-    throw new Error('Não foi possível obter o token CSRF.');
-  }
-
-  const { csrfToken } = (await response.json()) as { csrfToken: string };
-
-  const form = document.createElement('form');
-  form.method = 'POST';
-  form.action = `/api/auth/signin/${provider}`;
-  form.style.display = 'none';
-  if (popupTarget) form.target = popupTarget;
-
-  const csrfInput = document.createElement('input');
-  csrfInput.type = 'hidden';
-  csrfInput.name = 'csrfToken';
-  csrfInput.value = csrfToken;
-  form.appendChild(csrfInput);
-
-  const callbackInput = document.createElement('input');
-  callbackInput.type = 'hidden';
-  callbackInput.name = 'callbackUrl';
-  callbackInput.value = callbackUrl;
-  form.appendChild(callbackInput);
-
-  document.body.appendChild(form);
-  form.submit();
-  form.remove();
 }
 
 /** Abre (ou foca, se já existir) a janela pequena onde o fluxo de OAuth vai rodar. */
@@ -104,7 +64,7 @@ export function getAuthErrorMessage(error: string): string {
     Verification: 'Link de verificação inválido ou expirado.',
     OAuthSignin: 'Não foi possível iniciar o login OAuth.',
     OAuthCallback:
-      'Erro no retorno do GitHub. A callback URL deve ser: https://SEU-DOMINIO.vercel.app/api/auth/callback/github',
+      'Erro no retorno do OAuth. Confira: (1) OAuth App (não GitHub App) em github.com/settings/developers, (2) callback https://tarefy.vercel.app/api/auth/callback/github, (3) GITHUB_CLIENT_SECRET igual ao do GitHub, (4) NEXTAUTH_URL=https://tarefy.vercel.app e redeploy.',
     OAuthCreateAccount:
       'Não foi possível criar a conta OAuth. Verifique se o banco (migrations) está OK na Vercel.',
     OAuthAccountNotLinked:
