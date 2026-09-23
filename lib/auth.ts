@@ -194,7 +194,7 @@ export const authOptions: NextAuthOptions = {
   providers,
   session: { strategy: 'jwt' },
   secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
-  debug: true,
+  debug: false,
   pages: {
     signIn: '/login',
     error: '/login',

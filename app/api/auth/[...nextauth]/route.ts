@@ -1,5 +1,6 @@
 import '@/lib/normalize-nextauth-url';
 import NextAuth from 'next-auth';
+import { NextRequest, NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth';
 import { consumeLastOAuthError } from '@/lib/auth-last-error';
 
@@ -8,45 +9,42 @@ const nextAuthHandler = NextAuth(authOptions);
 export const runtime = 'nodejs';
 
 /**
- * GitHub passou a devolver `iss=https://github.com/login/oauth` no callback (RFC 9207).
- * No next-auth v4 / openid-client isso dispara:
+ * GitHub devolve `iss=` no callback (RFC 9207). next-auth v4 / openid-client quebra com:
  *   OAuthCallbackError: issuer must be configured on the issuer
- * Google (OIDC completo) não tem o problema. Removemos `iss` só no callback do GitHub.
+ * Reescrever Request não basta (NextAuth lê a URL original). Redirect 307 sem `iss` resolve.
  */
-function requestWithoutGithubIss(req: Request): Request {
-  const url = new URL(req.url);
-  if (!url.pathname.includes('/callback/github') || !url.searchParams.has('iss')) {
-    return req;
-  }
+function redirectWithoutGithubIss(req: NextRequest): NextResponse | null {
+  if (!req.nextUrl.pathname.includes('/callback/github')) return null;
+  if (!req.nextUrl.searchParams.has('iss')) return null;
 
+  const url = req.nextUrl.clone();
   url.searchParams.delete('iss');
-  // Callback do GitHub é GET — só precisamos da URL sem `iss`.
-  return new Request(url.toString(), {
-    method: 'GET',
-    headers: req.headers,
-  });
+  return NextResponse.redirect(url, 307);
 }
 
-async function withCallbackDiagnostics(req: Request, context: unknown) {
-  const originalUrl = new URL(req.url);
-  const isGithubCallback = originalUrl.pathname.includes('/callback/github');
-  const patchedReq = requestWithoutGithubIss(req);
+async function withCallbackDiagnostics(req: NextRequest, context: unknown) {
+  const stripRedirect = redirectWithoutGithubIss(req);
+  if (stripRedirect) {
+    console.error('[auth:callback] stripping iss via redirect', {
+      from: req.nextUrl.search,
+      to: stripRedirect.headers.get('location'),
+    });
+    return stripRedirect;
+  }
 
+  const isGithubCallback = req.nextUrl.pathname.includes('/callback/github');
   if (isGithubCallback) {
-    const cookieHeader = req.headers.get('cookie') ?? '';
     console.error('[auth:callback:in]', {
-      search: originalUrl.search,
-      strippedIss: originalUrl.searchParams.has('iss'),
-      hasCode: originalUrl.searchParams.has('code'),
-      githubError: originalUrl.searchParams.get('error'),
-      hasStateCookie: cookieHeader.includes('next-auth.state'),
+      search: req.nextUrl.search,
+      hasCode: req.nextUrl.searchParams.has('code'),
+      hasIss: req.nextUrl.searchParams.has('iss'),
     });
   }
 
-  const response = await (nextAuthHandler as (req: Request, ctx: unknown) => Promise<Response>)(
-    patchedReq,
-    context,
-  );
+  const response = await (nextAuthHandler as (
+    req: NextRequest,
+    ctx: unknown,
+  ) => Promise<Response>)(req, context);
 
   if (!isGithubCallback || !(response instanceof Response)) {
     return response;
@@ -58,39 +56,30 @@ async function withCallbackDiagnostics(req: Request, context: unknown) {
   }
 
   try {
-    const redirectUrl = new URL(location, originalUrl.origin);
-    const cookieHeader = req.headers.get('cookie') ?? '';
-    redirectUrl.searchParams.set(
-      'hasStateCookie',
-      cookieHeader.includes('next-auth.state') ? '1' : '0',
-    );
-    redirectUrl.searchParams.set('hasCode', originalUrl.searchParams.has('code') ? '1' : '0');
-
+    const redirectUrl = new URL(location, req.nextUrl.origin);
     const cause = consumeLastOAuthError();
-    if (cause) redirectUrl.searchParams.set('authCause', cause);
-
-    // Cookie sobrevive ao redirect /api/auth/error → /login (que descarta query extras)
-    const res = Response.redirect(
-      redirectUrl.toString(),
-      response.status as 301 | 302 | 303 | 307 | 308,
-    );
     if (cause) {
-      res.headers.append(
-        'Set-Cookie',
-        `tarefy-oauth-cause=${encodeURIComponent(cause)}; Path=/; Max-Age=300; SameSite=Lax; Secure`,
-      );
+      redirectUrl.searchParams.set('authCause', cause);
+      const res = NextResponse.redirect(redirectUrl, response.status as 301 | 302 | 303 | 307 | 308);
+      res.cookies.set('tarefy-oauth-cause', cause, {
+        path: '/',
+        maxAge: 300,
+        sameSite: 'lax',
+        secure: true,
+      });
+      return res;
     }
-    return res;
+    return response;
   } catch (error) {
     console.error('[auth:callback:diag-failed]', error);
     return response;
   }
 }
 
-export async function GET(req: Request, context: unknown) {
+export async function GET(req: NextRequest, context: unknown) {
   return withCallbackDiagnostics(req, context);
 }
 
-export async function POST(req: Request, context: unknown) {
+export async function POST(req: NextRequest, context: unknown) {
   return withCallbackDiagnostics(req, context);
 }
