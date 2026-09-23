@@ -64,13 +64,13 @@ export function getAuthErrorMessage(error: string): string {
     Verification: 'Link de verificação inválido ou expirado.',
     OAuthSignin: 'Não foi possível iniciar o login OAuth.',
     OAuthCallback:
-      'Falha no retorno OAuth (cookie state). Limpe cookies de tarefy.vercel.app, tente de novo em aba anônima. Se persistir, veja /api/debug/oauth-health',
+      'Falha no retorno do GitHub (perfil/email). Se o Google funciona, limpe cookies e tente de novo.',
     OAuthCreateAccount:
       'Não foi possível criar a conta OAuth. Verifique se o banco (migrations) está OK na Vercel.',
     OAuthAccountNotLinked:
       'Este email já existe com outro método de login. Entre com email/senha ou use o mesmo provider.',
     OAuthEmailRequired:
-      'O GitHub/Google não retornou email. Torne seu email público no GitHub ou autorize o escopo de email.',
+      'O GitHub não retornou email. Em github.com/settings/emails, deixe um email visível ou confirme o escopo user:email.',
     EmailSignin: 'Erro ao enviar email de login.',
     Callback: 'Erro no callback de autenticação.',
     CredentialsSignin: 'Email ou senha inválidos.',
