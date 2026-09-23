@@ -64,7 +64,7 @@ export function getAuthErrorMessage(error: string): string {
     Verification: 'Link de verificação inválido ou expirado.',
     OAuthSignin: 'Não foi possível iniciar o login OAuth.',
     OAuthCallback:
-      'Falha no callback OAuth. Na Vercel, NEXTAUTH_URL deve ser https://tarefy.vercel.app SEM barra no final. Depois Redeploy. Diagnóstico: /api/debug/oauth-health',
+      'Falha no retorno OAuth (cookie state). Limpe cookies de tarefy.vercel.app, tente de novo em aba anônima. Se persistir, veja /api/debug/oauth-health',
     OAuthCreateAccount:
       'Não foi possível criar a conta OAuth. Verifique se o banco (migrations) está OK na Vercel.',
     OAuthAccountNotLinked:

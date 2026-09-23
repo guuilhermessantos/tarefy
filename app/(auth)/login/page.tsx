@@ -23,10 +23,12 @@ export default function LoginPage() {
     const authError = params.get('error');
     if (!authError) return;
 
-    const message = getAuthErrorMessage(authError);
-    // Se o NextAuth redirecionou o erro para /login *dentro do popup* (ex.: conta já vinculada a
-    // outro provider), avisamos a janela principal e fechamos, em vez de mostrar o formulário
-    // de login inteiro dentro da janelinha pequena.
+    const description = params.get('error_description') || params.get('message');
+    const message = description
+      ? `${getAuthErrorMessage(authError)} (${description})`
+      : getAuthErrorMessage(authError);
+    // Se o NextAuth redirecionou o erro para /login *dentro do popup*, avisamos a janela
+    // principal e fechamos; senão mostramos o erro no formulário.
     if (!notifyOpenerAndClose({ error: message, next: '/board' })) {
       setError(message);
     }
