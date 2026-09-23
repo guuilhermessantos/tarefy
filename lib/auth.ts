@@ -57,7 +57,7 @@ if (env('GITHUB_CLIENT_ID') && env('GITHUB_CLIENT_SECRET')) {
           if (!profileRes.ok) {
             throw new Error(`GitHub /user failed: ${profileRes.status}`);
           }
-          const profile = (await profileRes.json()) as {
+          const data = (await profileRes.json()) as {
             id: number;
             login: string;
             name?: string | null;
@@ -65,7 +65,8 @@ if (env('GITHUB_CLIENT_ID') && env('GITHUB_CLIENT_SECRET')) {
             avatar_url?: string;
           };
 
-          if (!profile.email) {
+          let email = data.email ?? undefined;
+          if (!email) {
             const emailsRes = await fetch('https://api.github.com/user/emails', { headers });
             if (emailsRes.ok) {
               const emails = (await emailsRes.json()) as Array<{
@@ -73,23 +74,35 @@ if (env('GITHUB_CLIENT_ID') && env('GITHUB_CLIENT_SECRET')) {
                 primary: boolean;
                 verified: boolean;
               }>;
-              profile.email =
+              email =
                 emails.find((entry) => entry.primary && entry.verified)?.email ??
                 emails.find((entry) => entry.primary)?.email ??
-                emails[0]?.email ??
-                null;
+                emails[0]?.email;
             }
           }
 
-          return profile;
+          return {
+            id: data.id,
+            login: data.login,
+            name: data.name ?? data.login,
+            email,
+            avatar_url: data.avatar_url,
+          };
         },
       },
       profile(profile) {
+        const gh = profile as {
+          id: number | string;
+          login?: string;
+          name?: string;
+          email?: string;
+          avatar_url?: string;
+        };
         return {
-          id: String(profile.id),
-          name: profile.name ?? profile.login,
-          email: profile.email,
-          image: profile.avatar_url,
+          id: String(gh.id),
+          name: gh.name ?? gh.login,
+          email: gh.email,
+          image: gh.avatar_url,
         };
       },
     }),
