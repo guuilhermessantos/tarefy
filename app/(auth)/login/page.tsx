@@ -24,12 +24,11 @@ export default function LoginPage() {
     if (!authError) return;
 
     const extras = [
+      params.get('authCause') ? `cause=${params.get('authCause')}` : null,
       params.get('error_description'),
       params.get('ghError') ? `ghError=${params.get('ghError')}` : null,
       params.get('ghErrorDescription'),
-      params.get('hasStateCookie') != null
-        ? `stateCookie=${params.get('hasStateCookie')}`
-        : null,
+      params.get('hasStateCookie') != null ? `stateCookie=${params.get('hasStateCookie')}` : null,
       params.get('hasCode') != null ? `hasCode=${params.get('hasCode')}` : null,
     ].filter(Boolean);
 

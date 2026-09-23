@@ -4,6 +4,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import GitHubProvider from 'next-auth/providers/github';
 import GoogleProvider from 'next-auth/providers/google';
 import { prisma } from '@/lib/db';
+import { setLastOAuthError } from '@/lib/auth-last-error';
 import '@/lib/normalize-nextauth-url';
 
 function env(name: string): string | undefined {
@@ -42,22 +43,36 @@ if (env('GITHUB_CLIENT_ID') && env('GITHUB_CLIENT_SECRET')) {
       clientSecret: env('GITHUB_CLIENT_SECRET')!,
       allowDangerousEmailAccountLinking: true,
       authorization: { params: { scope: 'read:user user:email' } },
-      // NextAuth v4 busca /user e /user/emails sem User-Agent; a API do GitHub
-      // exige o header e falha na Vercel (Google não passa por isso).
+      httpOptions: {
+        headers: {
+          'User-Agent': 'tarefy',
+        },
+      },
+      // Override completo: NextAuth v4 chama /user/emails sem User-Agent.
       userinfo: {
         url: 'https://api.github.com/user',
         async request({ tokens }) {
-          const headers = {
-            Authorization: `Bearer ${tokens.access_token}`,
+          const accessToken = tokens.access_token;
+          if (!accessToken) {
+            setLastOAuthError('github_missing_access_token');
+            throw new Error('github_missing_access_token');
+          }
+
+          const headers: Record<string, string> = {
+            Authorization: `Bearer ${accessToken}`,
             'User-Agent': 'tarefy',
             Accept: 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
           };
 
           const profileRes = await fetch('https://api.github.com/user', { headers });
+          const profileText = await profileRes.text();
           if (!profileRes.ok) {
-            throw new Error(`GitHub /user failed: ${profileRes.status}`);
+            setLastOAuthError(`github_user_${profileRes.status}:${profileText.slice(0, 120)}`);
+            throw new Error(`github_user_${profileRes.status}`);
           }
-          const data = (await profileRes.json()) as {
+
+          const data = JSON.parse(profileText) as {
             id: number;
             login: string;
             name?: string | null;
@@ -68,17 +83,24 @@ if (env('GITHUB_CLIENT_ID') && env('GITHUB_CLIENT_SECRET')) {
           let email = data.email ?? undefined;
           if (!email) {
             const emailsRes = await fetch('https://api.github.com/user/emails', { headers });
-            if (emailsRes.ok) {
-              const emails = (await emailsRes.json()) as Array<{
-                email: string;
-                primary: boolean;
-                verified: boolean;
-              }>;
-              email =
-                emails.find((entry) => entry.primary && entry.verified)?.email ??
-                emails.find((entry) => entry.primary)?.email ??
-                emails[0]?.email;
+            const emailsText = await emailsRes.text();
+            if (!emailsRes.ok) {
+              setLastOAuthError(`github_emails_${emailsRes.status}:${emailsText.slice(0, 120)}`);
+              throw new Error(`github_emails_${emailsRes.status}`);
             }
+            const emails = JSON.parse(emailsText) as Array<{
+              email: string;
+              primary: boolean;
+              verified: boolean;
+            }>;
+            email =
+              emails.find((entry) => entry.primary && entry.verified)?.email ??
+              emails.find((entry) => entry.primary)?.email ??
+              emails[0]?.email;
+          }
+
+          if (!email) {
+            setLastOAuthError('github_no_email');
           }
 
           return {
@@ -176,6 +198,19 @@ export const authOptions: NextAuthOptions = {
   },
   logger: {
     error(code, metadata) {
+      const meta = metadata as { error?: Error; message?: string } | Error | string | undefined;
+      let detail = String(code);
+      if (typeof meta === 'string') {
+        detail = `${code}:${meta}`;
+      } else if (meta instanceof Error) {
+        detail = `${code}:${meta.message}`;
+      } else if (meta && typeof meta === 'object') {
+        const err = meta.error;
+        if (err instanceof Error) detail = `${code}:${err.message}`;
+        else if (typeof meta.message === 'string') detail = `${code}:${meta.message}`;
+        else detail = `${code}:${JSON.stringify(meta).slice(0, 180)}`;
+      }
+      setLastOAuthError(detail);
       console.error('[next-auth:error]', code, metadata);
     },
     warn(code) {
