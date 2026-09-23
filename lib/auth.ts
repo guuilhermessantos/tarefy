@@ -105,9 +105,18 @@ export const authOptions: NextAuthOptions = {
   providers,
   session: { strategy: 'jwt' },
   secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
-  debug: process.env.NODE_ENV === 'development',
+  debug: process.env.NEXTAUTH_DEBUG === '1' || process.env.NODE_ENV === 'development',
   pages: {
     signIn: '/login',
+    error: '/login',
+  },
+  logger: {
+    error(code, metadata) {
+      console.error('[next-auth:error]', code, metadata);
+    },
+    warn(code) {
+      console.warn('[next-auth:warn]', code);
+    },
   },
   callbacks: {
     async signIn({ user, account, profile }) {
@@ -120,11 +129,15 @@ export const authOptions: NextAuthOptions = {
           : null);
 
       if (!email) {
-        console.error('[auth] OAuth sem email do provider:', account.provider);
+        console.error('[auth] OAuth sem email do provider:', account.provider, {
+          userEmail: user.email,
+          profile,
+        });
         return '/login?error=OAuthEmailRequired';
       }
 
       if (!account.providerAccountId) {
+        console.error('[auth] OAuth sem providerAccountId:', account);
         return '/login?error=OAuthCallback';
       }
 
@@ -134,7 +147,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name ?? null,
           image: user.image ?? null,
           provider: account.provider,
-          providerAccountId: account.providerAccountId,
+          providerAccountId: String(account.providerAccountId),
         });
         return true;
       } catch (error) {
@@ -144,9 +157,8 @@ export const authOptions: NextAuthOptions = {
     },
     async redirect({ url, baseUrl }) {
       try {
-        const target = new URL(url);
-        const base = new URL(baseUrl);
-        if (target.origin === base.origin) return url;
+        const target = new URL(url, baseUrl);
+        if (target.origin === new URL(baseUrl).origin) return target.toString();
         return baseUrl;
       } catch {
         const path = url.startsWith('/') ? url : `/${url}`;
@@ -160,8 +172,12 @@ export const authOptions: NextAuthOptions = {
       }
 
       if (user?.email) {
-        const dbUser = await prisma.user.findUnique({ where: { email: user.email } });
-        if (dbUser) token.id = dbUser.id;
+        try {
+          const dbUser = await prisma.user.findUnique({ where: { email: user.email } });
+          if (dbUser) token.id = dbUser.id;
+        } catch (error) {
+          console.error('[auth] jwt: falha ao buscar usuário:', error);
+        }
       }
 
       return token;
