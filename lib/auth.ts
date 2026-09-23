@@ -42,6 +42,8 @@ if (env('GITHUB_CLIENT_ID') && env('GITHUB_CLIENT_SECRET')) {
       clientSecret: env('GITHUB_CLIENT_SECRET')!,
       allowDangerousEmailAccountLinking: true,
       authorization: { params: { scope: 'read:user user:email' } },
+      // Isolar falha do cookie state no retorno (Safari/Chrome). Reavaliar depois.
+      checks: 'none',
     }),
   );
 }
