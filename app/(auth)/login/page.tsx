@@ -21,23 +21,40 @@ export default function LoginPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const authError = params.get('error');
-    if (!authError) return;
 
-    const extras = [
-      params.get('authCause') ? `cause=${params.get('authCause')}` : null,
-      params.get('error_description'),
-      params.get('ghError') ? `ghError=${params.get('ghError')}` : null,
-      params.get('ghErrorDescription'),
-      params.get('hasStateCookie') != null ? `stateCookie=${params.get('hasStateCookie')}` : null,
-      params.get('hasCode') != null ? `hasCode=${params.get('hasCode')}` : null,
-    ].filter(Boolean);
+    async function showError() {
+      const extras: string[] = [];
+      if (authError) {
+        extras.push(
+          ...[
+            params.get('authCause') ? `cause=${params.get('authCause')}` : null,
+            params.get('hasStateCookie') != null ? `stateCookie=${params.get('hasStateCookie')}` : null,
+            params.get('hasCode') != null ? `hasCode=${params.get('hasCode')}` : null,
+          ].filter(Boolean) as string[],
+        );
+      }
 
-    const base = getAuthErrorMessage(authError);
-    const message = extras.length ? `${base} [${extras.join(' | ')}]` : base;
+      try {
+        const causeRes = await fetch('/api/debug/oauth-cause');
+        if (causeRes.ok) {
+          const data = (await causeRes.json()) as { cause?: string | null };
+          if (data.cause) extras.unshift(`cause=${data.cause}`);
+        }
+      } catch {
+        // ignore
+      }
 
-    if (!notifyOpenerAndClose({ error: message, next: '/board' })) {
-      setError(message);
+      if (!authError && extras.length === 0) return;
+
+      const base = authError ? getAuthErrorMessage(authError) : 'Erro OAuth';
+      const message = extras.length ? `${base} [${extras.join(' | ')}]` : base;
+
+      if (!notifyOpenerAndClose({ error: message, next: '/board' })) {
+        setError(message);
+      }
     }
+
+    void showError();
   }, []);
 
   useEffect(() => {

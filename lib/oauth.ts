@@ -64,7 +64,7 @@ export function getAuthErrorMessage(error: string): string {
     Verification: 'Link de verificação inválido ou expirado.',
     OAuthSignin: 'Não foi possível iniciar o login OAuth.',
     OAuthCallback:
-      'Falha no retorno do GitHub (perfil/email). Se o Google funciona, limpe cookies e tente de novo.',
+      'Falha no retorno do GitHub. Se persistir após o fix do parâmetro iss, limpe cookies e tente de novo.',
     OAuthCreateAccount:
       'Não foi possível criar a conta OAuth. Verifique se o banco (migrations) está OK na Vercel.',
     OAuthAccountNotLinked:

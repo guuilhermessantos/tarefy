@@ -7,22 +7,46 @@ const nextAuthHandler = NextAuth(authOptions);
 
 export const runtime = 'nodejs';
 
-async function withCallbackDiagnostics(req: Request, context: unknown) {
+/**
+ * GitHub passou a devolver `iss=https://github.com/login/oauth` no callback (RFC 9207).
+ * No next-auth v4 / openid-client isso dispara:
+ *   OAuthCallbackError: issuer must be configured on the issuer
+ * Google (OIDC completo) não tem o problema. Removemos `iss` só no callback do GitHub.
+ */
+function requestWithoutGithubIss(req: Request): Request {
   const url = new URL(req.url);
-  const isGithubCallback = url.pathname.includes('/callback/github');
+  if (!url.pathname.includes('/callback/github') || !url.searchParams.has('iss')) {
+    return req;
+  }
+
+  url.searchParams.delete('iss');
+  return new Request(url.toString(), {
+    method: req.method,
+    headers: req.headers,
+    body: req.body,
+    // @ts-expect-error duplex é necessário em alguns runtimes quando há body
+    duplex: 'half',
+  });
+}
+
+async function withCallbackDiagnostics(req: Request, context: unknown) {
+  const originalUrl = new URL(req.url);
+  const isGithubCallback = originalUrl.pathname.includes('/callback/github');
+  const patchedReq = requestWithoutGithubIss(req);
 
   if (isGithubCallback) {
     const cookieHeader = req.headers.get('cookie') ?? '';
     console.error('[auth:callback:in]', {
-      search: url.search,
-      hasCode: url.searchParams.has('code'),
-      githubError: url.searchParams.get('error'),
+      search: originalUrl.search,
+      strippedIss: originalUrl.searchParams.has('iss'),
+      hasCode: originalUrl.searchParams.has('code'),
+      githubError: originalUrl.searchParams.get('error'),
       hasStateCookie: cookieHeader.includes('next-auth.state'),
     });
   }
 
   const response = await (nextAuthHandler as (req: Request, ctx: unknown) => Promise<Response>)(
-    req,
+    patchedReq,
     context,
   );
 
@@ -36,21 +60,29 @@ async function withCallbackDiagnostics(req: Request, context: unknown) {
   }
 
   try {
-    const redirectUrl = new URL(location, url.origin);
+    const redirectUrl = new URL(location, originalUrl.origin);
     const cookieHeader = req.headers.get('cookie') ?? '';
-    redirectUrl.searchParams.set('hasStateCookie', cookieHeader.includes('next-auth.state') ? '1' : '0');
-    redirectUrl.searchParams.set('hasCode', url.searchParams.has('code') ? '1' : '0');
-
-    const ghError = url.searchParams.get('error');
-    const ghErrorDescription = url.searchParams.get('error_description');
-    if (ghError) redirectUrl.searchParams.set('ghError', ghError);
-    if (ghErrorDescription) redirectUrl.searchParams.set('ghErrorDescription', ghErrorDescription);
+    redirectUrl.searchParams.set(
+      'hasStateCookie',
+      cookieHeader.includes('next-auth.state') ? '1' : '0',
+    );
+    redirectUrl.searchParams.set('hasCode', originalUrl.searchParams.has('code') ? '1' : '0');
 
     const cause = consumeLastOAuthError();
     if (cause) redirectUrl.searchParams.set('authCause', cause);
 
-    console.error('[auth:callback:out]', redirectUrl.toString());
-    return Response.redirect(redirectUrl.toString(), response.status as 301 | 302 | 303 | 307 | 308);
+    // Cookie sobrevive ao redirect /api/auth/error → /login (que descarta query extras)
+    const res = Response.redirect(
+      redirectUrl.toString(),
+      response.status as 301 | 302 | 303 | 307 | 308,
+    );
+    if (cause) {
+      res.headers.append(
+        'Set-Cookie',
+        `tarefy-oauth-cause=${encodeURIComponent(cause)}; Path=/; Max-Age=300; SameSite=Lax; Secure`,
+      );
+    }
+    return res;
   } catch (error) {
     console.error('[auth:callback:diag-failed]', error);
     return response;

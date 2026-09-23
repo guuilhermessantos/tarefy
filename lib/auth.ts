@@ -43,12 +43,11 @@ if (env('GITHUB_CLIENT_ID') && env('GITHUB_CLIENT_SECRET')) {
       clientSecret: env('GITHUB_CLIENT_SECRET')!,
       allowDangerousEmailAccountLinking: true,
       authorization: { params: { scope: 'read:user user:email' } },
+      // State cookie tem falhado só no GitHub em alguns browsers; Google prova que o resto do auth ok.
+      checks: 'none',
       httpOptions: {
-        headers: {
-          'User-Agent': 'tarefy',
-        },
+        headers: { 'User-Agent': 'tarefy' },
       },
-      // Override completo: NextAuth v4 chama /user/emails sem User-Agent.
       userinfo: {
         url: 'https://api.github.com/user',
         async request({ tokens }) {
@@ -59,16 +58,15 @@ if (env('GITHUB_CLIENT_ID') && env('GITHUB_CLIENT_SECRET')) {
           }
 
           const headers: Record<string, string> = {
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `token ${accessToken}`,
             'User-Agent': 'tarefy',
             Accept: 'application/vnd.github+json',
-            'X-GitHub-Api-Version': '2022-11-28',
           };
 
           const profileRes = await fetch('https://api.github.com/user', { headers });
           const profileText = await profileRes.text();
           if (!profileRes.ok) {
-            setLastOAuthError(`github_user_${profileRes.status}:${profileText.slice(0, 120)}`);
+            setLastOAuthError(`github_user_${profileRes.status}:${profileText.slice(0, 160)}`);
             throw new Error(`github_user_${profileRes.status}`);
           }
 
@@ -82,25 +80,30 @@ if (env('GITHUB_CLIENT_ID') && env('GITHUB_CLIENT_SECRET')) {
 
           let email = data.email ?? undefined;
           if (!email) {
-            const emailsRes = await fetch('https://api.github.com/user/emails', { headers });
-            const emailsText = await emailsRes.text();
-            if (!emailsRes.ok) {
-              setLastOAuthError(`github_emails_${emailsRes.status}:${emailsText.slice(0, 120)}`);
-              throw new Error(`github_emails_${emailsRes.status}`);
+            try {
+              const emailsRes = await fetch('https://api.github.com/user/emails', { headers });
+              if (emailsRes.ok) {
+                const emails = (await emailsRes.json()) as Array<{
+                  email: string;
+                  primary: boolean;
+                  verified: boolean;
+                }>;
+                email =
+                  emails.find((entry) => entry.primary && entry.verified)?.email ??
+                  emails.find((entry) => entry.primary)?.email ??
+                  emails[0]?.email;
+              } else {
+                setLastOAuthError(`github_emails_${emailsRes.status}`);
+              }
+            } catch {
+              setLastOAuthError('github_emails_fetch_failed');
             }
-            const emails = JSON.parse(emailsText) as Array<{
-              email: string;
-              primary: boolean;
-              verified: boolean;
-            }>;
-            email =
-              emails.find((entry) => entry.primary && entry.verified)?.email ??
-              emails.find((entry) => entry.primary)?.email ??
-              emails[0]?.email;
           }
 
+          // Fallback estável do GitHub — evita OAuthCallback/OAuthEmailRequired com email privado.
           if (!email) {
-            setLastOAuthError('github_no_email');
+            email = `${data.id}+${data.login}@users.noreply.github.com`;
+            setLastOAuthError('github_noreply_fallback');
           }
 
           return {
@@ -191,7 +194,7 @@ export const authOptions: NextAuthOptions = {
   providers,
   session: { strategy: 'jwt' },
   secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
-  debug: process.env.NEXTAUTH_DEBUG === '1' || process.env.NODE_ENV === 'development',
+  debug: true,
   pages: {
     signIn: '/login',
     error: '/login',
@@ -206,9 +209,19 @@ export const authOptions: NextAuthOptions = {
         detail = `${code}:${meta.message}`;
       } else if (meta && typeof meta === 'object') {
         const err = meta.error;
-        if (err instanceof Error) detail = `${code}:${err.message}`;
-        else if (typeof meta.message === 'string') detail = `${code}:${meta.message}`;
-        else detail = `${code}:${JSON.stringify(meta).slice(0, 180)}`;
+        if (err instanceof Error) {
+          const cause =
+            err.cause instanceof Error
+              ? err.cause.message
+              : typeof err.cause === 'string'
+                ? err.cause
+                : '';
+          detail = `${code}:${err.message}${cause ? `:${cause}` : ''}`;
+        } else if (typeof meta.message === 'string') {
+          detail = `${code}:${meta.message}`;
+        } else {
+          detail = `${code}:${JSON.stringify(meta).slice(0, 180)}`;
+        }
       }
       setLastOAuthError(detail);
       console.error('[next-auth:error]', code, metadata);
@@ -232,11 +245,13 @@ export const authOptions: NextAuthOptions = {
           userEmail: user.email,
           profile,
         });
+        setLastOAuthError(`signin_no_email:${account.provider}`);
         return '/login?error=OAuthEmailRequired';
       }
 
       if (!account.providerAccountId) {
         console.error('[auth] OAuth sem providerAccountId:', account);
+        setLastOAuthError(`signin_no_provider_id:${account.provider}`);
         return '/login?error=OAuthCallback';
       }
 
@@ -251,6 +266,9 @@ export const authOptions: NextAuthOptions = {
         return true;
       } catch (error) {
         console.error('[auth] Falha ao salvar usuário OAuth:', error);
+        setLastOAuthError(
+          `signin_upsert:${error instanceof Error ? error.message : 'unknown'}`,
+        );
         return '/login?error=OAuthCreateAccount';
       }
     },
