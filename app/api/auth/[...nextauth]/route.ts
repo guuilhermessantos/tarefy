@@ -1,3 +1,4 @@
+import '@/lib/normalize-nextauth-url';
 import NextAuth from 'next-auth';
 import { authOptions } from '@/lib/auth';
 

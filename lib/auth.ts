@@ -4,24 +4,12 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import GitHubProvider from 'next-auth/providers/github';
 import GoogleProvider from 'next-auth/providers/google';
 import { prisma } from '@/lib/db';
+import '@/lib/normalize-nextauth-url';
 
 function env(name: string): string | undefined {
   const value = process.env[name]?.trim();
   return value || undefined;
 }
-
-/** NextAuth quebra OAuth se NEXTAUTH_URL tiver barra no final. */
-function normalizeNextAuthUrl(): void {
-  const raw = process.env.NEXTAUTH_URL?.trim();
-  if (!raw) return;
-  const normalized = raw.replace(/\/+$/, '');
-  if (normalized !== raw) {
-    process.env.NEXTAUTH_URL = normalized;
-    console.warn('[auth] NEXTAUTH_URL tinha barra final; normalizado para:', normalized);
-  }
-}
-
-normalizeNextAuthUrl();
 
 const providers: Provider[] = [
   CredentialsProvider({
