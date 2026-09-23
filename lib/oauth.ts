@@ -64,7 +64,7 @@ export function getAuthErrorMessage(error: string): string {
     Verification: 'Link de verificação inválido ou expirado.',
     OAuthSignin: 'Não foi possível iniciar o login OAuth.',
     OAuthCallback:
-      'Falha ao trocar o código OAuth (quase sempre GITHUB_CLIENT_SECRET errado na Vercel). Regenere o secret no GitHub → cole em GITHUB_CLIENT_SECRET → Redeploy. Confira também /api/auth/health',
+      'Falha no callback OAuth. Na Vercel, NEXTAUTH_URL deve ser https://tarefy.vercel.app SEM barra no final. Depois Redeploy. Diagnóstico: /api/debug/oauth-health',
     OAuthCreateAccount:
       'Não foi possível criar a conta OAuth. Verifique se o banco (migrations) está OK na Vercel.',
     OAuthAccountNotLinked:

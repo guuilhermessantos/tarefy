@@ -63,23 +63,37 @@ export async function GET() {
     });
   }
 
+  const trailingSlash = nextAuthUrl.endsWith('/');
   const credentialsOk = githubError === 'bad_verification_code';
   const credentialsBad = githubError === 'incorrect_client_credentials';
 
+  let diagnosis: string;
+  let message: string;
+
+  if (credentialsBad) {
+    diagnosis = 'credentials_invalid';
+    message =
+      'GITHUB_CLIENT_ID/SECRET rejeitados pelo GitHub. Cole de novo na Vercel (mesmo app Ov23…) e Redeploy.';
+  } else if (credentialsOk && trailingSlash) {
+    diagnosis = 'nextauth_url_trailing_slash';
+    message =
+      'Credenciais OK, mas NEXTAUTH_URL tem barra no final. Mude para https://tarefy.vercel.app (sem /) e Redeploy — isso quebra o OAuthCallback.';
+  } else if (credentialsOk) {
+    diagnosis = 'credentials_ok';
+    message =
+      'Client ID/Secret e NEXTAUTH_URL OK. Se ainda falhar, veja logs da Vercel ([next-auth:error]).';
+  } else {
+    diagnosis = `github_error:${githubError}`;
+    message = `Resposta inesperada do GitHub: ${githubError} (${githubErrorDescription})`;
+  }
+
   return NextResponse.json({
-    ok: credentialsOk,
-    diagnosis: credentialsOk
-      ? 'credentials_ok'
-      : credentialsBad
-        ? 'credentials_invalid'
-        : `github_error:${githubError}`,
-    message: credentialsOk
-      ? 'Client ID/Secret OK. O problema NÃO é o secret — olhe NEXTAUTH_URL, cookies ou banco.'
-      : credentialsBad
-        ? 'GITHUB_CLIENT_ID/SECRET rejeitados pelo GitHub. Cole de novo na Vercel (mesmo app Ov23…) e Redeploy.'
-        : `Resposta inesperada do GitHub: ${githubError} (${githubErrorDescription})`,
+    ok: credentialsOk && !trailingSlash,
+    diagnosis,
+    message,
     nextAuthUrl: nextAuthUrl || null,
-    nextAuthUrlOk: nextAuthUrl === 'https://tarefy.vercel.app',
+    nextAuthUrlOk: nextAuthUrl.replace(/\/+$/, '') === 'https://tarefy.vercel.app',
+    nextAuthUrlHasTrailingSlash: trailingSlash,
     hasAuthSecret,
     githubIdPrefix: clientId.slice(0, 4),
     githubIdLength: clientId.length,
