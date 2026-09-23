@@ -20,12 +20,10 @@ function requestWithoutGithubIss(req: Request): Request {
   }
 
   url.searchParams.delete('iss');
+  // Callback do GitHub é GET — só precisamos da URL sem `iss`.
   return new Request(url.toString(), {
-    method: req.method,
+    method: 'GET',
     headers: req.headers,
-    body: req.body,
-    // @ts-expect-error duplex é necessário em alguns runtimes quando há body
-    duplex: 'half',
   });
 }
 
