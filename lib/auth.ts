@@ -42,8 +42,56 @@ if (env('GITHUB_CLIENT_ID') && env('GITHUB_CLIENT_SECRET')) {
       clientSecret: env('GITHUB_CLIENT_SECRET')!,
       allowDangerousEmailAccountLinking: true,
       authorization: { params: { scope: 'read:user user:email' } },
-      // Isolar falha do cookie state no retorno (Safari/Chrome). Reavaliar depois.
-      checks: 'none',
+      // NextAuth v4 busca /user e /user/emails sem User-Agent; a API do GitHub
+      // exige o header e falha na Vercel (Google não passa por isso).
+      userinfo: {
+        url: 'https://api.github.com/user',
+        async request({ tokens }) {
+          const headers = {
+            Authorization: `Bearer ${tokens.access_token}`,
+            'User-Agent': 'tarefy',
+            Accept: 'application/vnd.github+json',
+          };
+
+          const profileRes = await fetch('https://api.github.com/user', { headers });
+          if (!profileRes.ok) {
+            throw new Error(`GitHub /user failed: ${profileRes.status}`);
+          }
+          const profile = (await profileRes.json()) as {
+            id: number;
+            login: string;
+            name?: string | null;
+            email?: string | null;
+            avatar_url?: string;
+          };
+
+          if (!profile.email) {
+            const emailsRes = await fetch('https://api.github.com/user/emails', { headers });
+            if (emailsRes.ok) {
+              const emails = (await emailsRes.json()) as Array<{
+                email: string;
+                primary: boolean;
+                verified: boolean;
+              }>;
+              profile.email =
+                emails.find((entry) => entry.primary && entry.verified)?.email ??
+                emails.find((entry) => entry.primary)?.email ??
+                emails[0]?.email ??
+                null;
+            }
+          }
+
+          return profile;
+        },
+      },
+      profile(profile) {
+        return {
+          id: String(profile.id),
+          name: profile.name ?? profile.login,
+          email: profile.email,
+          image: profile.avatar_url,
+        };
+      },
     }),
   );
 }
